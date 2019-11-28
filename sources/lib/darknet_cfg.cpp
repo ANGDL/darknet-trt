@@ -163,3 +163,68 @@ std::string darknet::NetConfig::find_net_property(string property, string defaul
 	std::cout << "find net block error!" << std::endl;
 	return default_value;
 }
+
+darknet::YoloV3TinyCfg::YoloV3TinyCfg(string data_file, string yolo_cfg_file, string precision, string input_blob_name, vector<string> output_names) :
+	NetConfig(data_file, yolo_cfg_file, precision, input_blob_name),
+	BBOXES(3),
+	STRIDE_1(32),
+	STRIDE_2(16),
+	GRID_SIZE_1(INPUT_W / STRIDE_1),
+	GRID_SIZE_2(INPUT_W / STRIDE_2),
+	OUTPUT_SIZE_1(GRID_SIZE_1* GRID_SIZE_1* BBOXES* (OUTPUT_CLASSES + 5)),
+	OUTPUT_SIZE_2(GRID_SIZE_2* GRID_SIZE_2* BBOXES* (OUTPUT_CLASSES + 5)),
+	MASK_1(find_mask(1)),
+	MASK_2(find_mask(2)),
+	OUTPUT_BLOB_NAME_1(output_names[0]),
+	OUTPUT_BLOB_NAME_2(output_names[1]),
+	ANCHORS(find_anchors())
+{
+
+}
+
+std::vector<int> darknet::YoloV3TinyCfg::find_mask(int idx)
+{
+	int i = 0;
+	vector<int> res;
+	for (auto& block : blocks)
+	{
+		if (block.find("type") != block.end() && block.at("type") == "yolo") {
+			if (++i == idx) {
+				vector<string> mask = split(trim(block.at("mask")), ',');
+				for (auto& c : mask) {
+					res.push_back(stoi(c));
+				}
+			}
+		}
+	}
+
+	return res;
+}
+
+
+std::vector<float> darknet::YoloV3TinyCfg::find_anchors()
+{
+	vector<float> res;
+	for (auto& block : blocks)
+	{
+		if (block.find("type") != block.end() && block.at("type") == "yolo") {
+			vector<string> anchors = split(trim(block.at("anchors")), ',');
+			for (auto& c : anchors) {
+				res.push_back(stof(c));
+			}
+		}
+	}
+
+	return res;
+}
+
+darknet::YoloV3Cfg::YoloV3Cfg(string data_file, string yolo_cfg_file, string precision, string input_blob_name, vector<string> output_names) :
+	YoloV3TinyCfg(data_file, yolo_cfg_file, precision, input_blob_name, output_names),
+	STRIDE_3(8),
+	GRID_SIZE_3(INPUT_H / STRIDE_3),
+	OUTPUT_SIZE_3(GRID_SIZE_3* GRID_SIZE_3* (OUTPUT_CLASSES + 5)),
+	MASK_3(find_mask(3)),
+	OUTPUT_BLOB_NAME_3(output_names[2])
+{
+
+}
