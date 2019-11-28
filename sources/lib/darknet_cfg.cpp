@@ -2,9 +2,11 @@
 #include "darknet_utils.h"
 #include <iostream>
 #include <fstream>
+#include <assert.h>
 
 
 darknet::NetConfig::NetConfig(string data_file, string yolo_cfg_file, string precision, string input_blob_name) :
+	is_good(true),
 	blocks(parse_config2blocks(yolo_cfg_file)),
 	PRECISION(precision),
 	INPUT_BLOB_NAME(input_blob_name),
@@ -35,6 +37,12 @@ void darknet::NetConfig::display_blocks()
 	}
 }
 
+
+bool darknet::NetConfig::good() const
+{
+	return is_good;
+}
+
 uint32_t darknet::NetConfig::init_output_classes(string data_file)
 {
 	std::fstream sread(data_file, std::fstream::in);
@@ -53,7 +61,9 @@ uint32_t darknet::NetConfig::init_output_classes(string data_file)
 		}
 	}
 
-	return 20;  // 按voc数据集设置为20
+	std::cout << "read  data file error!" << std::endl;
+	is_good = false;
+	return 0;
 }
 
 std::vector<std::string> darknet::NetConfig::init_classes_names(string data_file)
@@ -79,36 +89,15 @@ std::vector<std::string> darknet::NetConfig::init_classes_names(string data_file
 					return names;
 				}
 				else {
-					throw std::runtime_error("open " + names_file + "failed!\n");
+					std::cout << "read  class names file error!" << std::endl;
+					break;
 				}
 
 			}
 		}
 	}
 
-	names = {
-		"aeroplane",
-		"bicycle",
-		"bird",
-		"boat",
-		"bottle",
-		"bus",
-		"car",
-		"cat",
-		"chair",
-		"cow",
-		"diningtable",
-		"dog",
-		"horse",
-		"motorbike",
-		"person",
-		"pottedplant",
-		"sheep",
-		"sofa",
-		"train",
-		"tvmonitor"
-	};
-
+	is_good = false;
 	return names;
 }
 
@@ -119,8 +108,12 @@ darknet::Blocks darknet::NetConfig::parse_config2blocks(string yolo_cfg_file)
 	std::string line;
 	Blocks blocks;
 	Block block;
-	if (!(file_exits(yolo_cfg_file) && file.good())) {
-		throw std::runtime_error("open " + yolo_cfg_file + "failed!\n");
+
+
+	if (!(file_exits(yolo_cfg_file) && file.good()))
+	{
+		is_good = false;
+		return blocks;
 	}
 
 	while (getline(file, line))
