@@ -27,6 +27,18 @@
     <ClInclude Include="sources\lib\darknet_utils.h">
       <Filter>utils</Filter>
     </ClInclude>
+    <ClInclude Include="sources\lib\yolo.h">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\yolo_plagin.h">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\plagin_factory.h">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\yolo_layer_kernels.cuh">
+      <Filter>yolo</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sources\lib\darknet_cfg.cpp">
@@ -38,5 +50,13 @@
     <ClCompile Include="sources\apps\test.cpp">
       <Filter>app</Filter>
     </ClCompile>
+    <ClCompile Include="sources\lib\plagin_factory.cpp">
+      <Filter>yolo</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="sources\lib\yolo_layer_kernels.cu">
+      <Filter>yolo</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>
