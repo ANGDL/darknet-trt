@@ -8,6 +8,8 @@
 namespace darknet {
 	using namespace std;
 
+	typedef unsigned int uint;
+
 	typedef vector<map<string, string>> Blocks;
 	typedef map<string, string> Block;
 
@@ -45,26 +47,33 @@ namespace darknet {
 	public:
 		YoloV3TinyCfg(string data_file,
 			string yolo_cfg_file,
+			string weights_file,
+			string calib_table_file,
 			string precision,
 			string input_blob_name = "data",
 			vector<string> output_names = YOLOV3_TINT_OUTPUT_NAMES);
+
+		virtual const string get_network_type() const;
 	protected:
 		virtual std::vector<int> find_mask(int idx);
 		virtual std::vector<float> find_anchors();
 
 	public:
-		const uint32_t BBOXES;
-		const uint32_t STRIDE_1;
-		const uint32_t STRIDE_2;
-		const uint32_t GRID_SIZE_1;
-		const uint32_t GRID_SIZE_2;
-		const uint32_t OUTPUT_SIZE_1;
-		const uint32_t OUTPUT_SIZE_2;
+		const uint BBOXES;
+		const uint STRIDE_1;
+		const uint STRIDE_2;
+		const uint GRID_SIZE_1;
+		const uint GRID_SIZE_2;
+		const uint OUTPUT_SIZE_1;
+		const uint OUTPUT_SIZE_2;
 		const std::vector<int> MASK_1;
 		const std::vector<int> MASK_2;
 		const std::string OUTPUT_BLOB_NAME_1;
 		const std::string OUTPUT_BLOB_NAME_2;
 		const std::vector<float> ANCHORS;
+
+		const std::string TRAINED_WEIGHTS_PATH;
+		const std::string CALIB_TABLE_PATH;
 	};
 
 	class YoloV3Cfg : public YoloV3TinyCfg
@@ -72,14 +81,18 @@ namespace darknet {
 	public:
 		YoloV3Cfg(string data_file,
 			string yolo_cfg_file,
+			string weights_file,
+			string calib_table_file,
 			string precision,
 			string input_blob_name = "data",
 			vector<string> output_names = YOLOV3_OUTPUT_NAMES);
 
+		virtual const string get_network_type() const;
+
 	public:
-		const uint32_t STRIDE_3;
-		const uint32_t GRID_SIZE_3;
-		const uint32_t OUTPUT_SIZE_3;
+		const uint STRIDE_3;
+		const uint GRID_SIZE_3;
+		const uint OUTPUT_SIZE_3;
 		const std::vector<int> MASK_3;
 		const std::string OUTPUT_BLOB_NAME_3;
 	};

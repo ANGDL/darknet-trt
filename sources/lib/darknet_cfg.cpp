@@ -43,7 +43,7 @@ bool darknet::NetConfig::good() const
 	return is_good;
 }
 
-uint32_t darknet::NetConfig::init_output_classes(string data_file)
+unsigned int  darknet::NetConfig::init_output_classes(string data_file)
 {
 	std::fstream sread(data_file, std::fstream::in);
 
@@ -164,7 +164,15 @@ std::string darknet::NetConfig::find_net_property(string property, string defaul
 	return default_value;
 }
 
-darknet::YoloV3TinyCfg::YoloV3TinyCfg(string data_file, string yolo_cfg_file, string precision, string input_blob_name, vector<string> output_names) :
+darknet::YoloV3TinyCfg::YoloV3TinyCfg(
+	string data_file,
+	string yolo_cfg_file,
+	string weights_file,
+	string calib_table_file,
+	string precision,
+	string input_blob_name,
+	vector<string> output_names) :
+
 	NetConfig(data_file, yolo_cfg_file, precision, input_blob_name),
 	BBOXES(3),
 	STRIDE_1(32),
@@ -177,9 +185,17 @@ darknet::YoloV3TinyCfg::YoloV3TinyCfg(string data_file, string yolo_cfg_file, st
 	MASK_2(find_mask(2)),
 	OUTPUT_BLOB_NAME_1(output_names[0]),
 	OUTPUT_BLOB_NAME_2(output_names[1]),
-	ANCHORS(find_anchors())
+	ANCHORS(find_anchors()),
+	TRAINED_WEIGHTS_PATH(weights_file),
+	CALIB_TABLE_PATH(calib_table_file)
 {
 
+}
+
+
+const std::string darknet::YoloV3TinyCfg::get_network_type() const
+{
+	return "yolov3-tiny";
 }
 
 std::vector<int> darknet::YoloV3TinyCfg::find_mask(int idx)
@@ -218,8 +234,16 @@ std::vector<float> darknet::YoloV3TinyCfg::find_anchors()
 	return res;
 }
 
-darknet::YoloV3Cfg::YoloV3Cfg(string data_file, string yolo_cfg_file, string precision, string input_blob_name, vector<string> output_names) :
-	YoloV3TinyCfg(data_file, yolo_cfg_file, precision, input_blob_name, output_names),
+darknet::YoloV3Cfg::YoloV3Cfg(
+	string data_file,
+	string yolo_cfg_file,
+	string weights_file,
+	string calib_table_file,
+	string precision,
+	string input_blob_name,
+	vector<string> output_names) :
+
+	YoloV3TinyCfg(data_file, yolo_cfg_file, weights_file, calib_table_file, precision, input_blob_name, output_names),
 	STRIDE_3(8),
 	GRID_SIZE_3(INPUT_H / STRIDE_3),
 	OUTPUT_SIZE_3(GRID_SIZE_3* GRID_SIZE_3* (OUTPUT_CLASSES + 5)),
@@ -227,4 +251,9 @@ darknet::YoloV3Cfg::YoloV3Cfg(string data_file, string yolo_cfg_file, string pre
 	OUTPUT_BLOB_NAME_3(output_names[2])
 {
 
+}
+
+const std::string darknet::YoloV3Cfg::get_network_type() const
+{
+	return "yolov3";
 }
