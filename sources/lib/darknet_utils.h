@@ -3,7 +3,10 @@
 
 #include <filesystem>
 #include <iostream>
+#include <fstream>
 #include <vector>
+#include <sstream>
+#include <assert.h>
 
 #define NV_CUDA_CHECK(status)                                                                      \
     {                                                                                              \
@@ -20,5 +23,7 @@ bool file_exits(const std::string filename);
 std::string trim(std::string s);
 
 std::vector<std::string> split(const std::string& s, char delimiter);
+
+std::vector<float> load_weights(const std::string weights_path, const std::string network_type);
 
 #endif

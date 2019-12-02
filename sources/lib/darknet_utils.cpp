@@ -1,5 +1,4 @@
-﻿#include <sstream>
-#include "darknet_utils.h"
+﻿#include "darknet_utils.h"
 
 
 bool file_exits(const std::string filename)
@@ -34,4 +33,40 @@ std::vector<std::string> split(const std::string& s, char delimiter)
 		tokens.push_back(token);
 	}
 	return tokens;
+}
+
+std::vector<float> load_weights(const std::string weights_path, const std::string network_type)
+{
+	std::vector<float> weights;
+
+	std::ifstream file(weights_path, std::fstream::in);
+	if (!file.good())
+	{
+		std::cout << "open weight file failed !" << std::endl;
+		return weights;
+	}
+
+	if (!(network_type == "yolov3" || network_type == "yolov3-tiny")) {
+		std::cout << "Invalid network type" << std::endl;
+		assert(0);
+		return weights;
+	}
+
+	// Remove 5 int32 bytes of data from the stream belonging to the header
+	file.ignore(4 * 5);
+
+	char float_weight[4];
+
+	while (!file.eof())
+	{
+		file.read(float_weight, 4);
+		assert(file.gcount() == 4);
+		weights.push_back(*reinterpret_cast<float*> (float_weight));
+		if (file.peek() == std::istream::traits_type::eof()) break;
+	}
+
+	std::cout << "Total Number of weights read : " << weights.size() << std::endl;
+	std::cout << "Loading complete!" << std::endl;
+
+	return weights;
 }
