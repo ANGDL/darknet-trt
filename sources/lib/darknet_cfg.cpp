@@ -5,7 +5,14 @@
 #include <assert.h>
 
 
-darknet::NetConfig::NetConfig(string data_file, string yolo_cfg_file, string precision, string input_blob_name) :
+darknet::NetConfig::NetConfig(
+	string data_file,
+	string yolo_cfg_file,
+	string weights_file,
+	string calib_table_file,
+	string precision,
+	string input_blob_name = "data") :
+
 	is_good(true),
 	blocks(parse_config2blocks(yolo_cfg_file)),
 	PRECISION(precision),
@@ -15,7 +22,9 @@ darknet::NetConfig::NetConfig(string data_file, string yolo_cfg_file, string pre
 	INPUT_C(stoi(find_net_property("channels", "3"))),
 	INPUT_SIZE(INPUT_C* INPUT_W* INPUT_H),
 	OUTPUT_CLASSES(init_output_classes(data_file)),
-	CLASS_NAMES(init_classes_names(data_file))
+	CLASS_NAMES(init_classes_names(data_file)),
+	WEIGHTS_FLIE(weights_file),
+	CALIB_FILE(calib_table_file)
 {
 
 }
@@ -173,7 +182,7 @@ darknet::YoloV3TinyCfg::YoloV3TinyCfg(
 	string input_blob_name,
 	vector<string> output_names) :
 
-	NetConfig(data_file, yolo_cfg_file, precision, input_blob_name),
+	NetConfig(data_file, yolo_cfg_file, weights_file, calib_table_file, precision, input_blob_name),
 	BBOXES(3),
 	STRIDE_1(32),
 	STRIDE_2(16),
@@ -185,9 +194,7 @@ darknet::YoloV3TinyCfg::YoloV3TinyCfg(
 	MASK_2(find_mask(2)),
 	OUTPUT_BLOB_NAME_1(output_names[0]),
 	OUTPUT_BLOB_NAME_2(output_names[1]),
-	ANCHORS(find_anchors()),
-	TRAINED_WEIGHTS_PATH(weights_file),
-	CALIB_TABLE_PATH(calib_table_file)
+	ANCHORS(find_anchors())
 {
 
 }

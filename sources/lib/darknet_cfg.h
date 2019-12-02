@@ -20,7 +20,13 @@ namespace darknet {
 
 	class NetConfig {
 	public:
-		NetConfig(string data_file, string yolo_cfg_file, string precision, string input_blob_name = "data");
+		NetConfig(
+			string data_file,
+			string yolo_cfg_file,
+			string weights_file,
+			string calib_table_file,
+			string precision,
+			string input_blob_name = "data");
 		void display_blocks();
 		bool good() const;
 	protected:
@@ -40,6 +46,9 @@ namespace darknet {
 		const uint32_t INPUT_SIZE;
 		const uint32_t OUTPUT_CLASSES;
 		const vector<string> CLASS_NAMES;
+
+		const string WEIGHTS_FLIE;
+		const string CALIB_FILE;
 	};
 
 	class YoloV3TinyCfg : public NetConfig
@@ -71,9 +80,6 @@ namespace darknet {
 		const std::string OUTPUT_BLOB_NAME_1;
 		const std::string OUTPUT_BLOB_NAME_2;
 		const std::vector<float> ANCHORS;
-
-		const std::string TRAINED_WEIGHTS_PATH;
-		const std::string CALIB_TABLE_PATH;
 	};
 
 	class YoloV3Cfg : public YoloV3TinyCfg
