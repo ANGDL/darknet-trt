@@ -22,11 +22,12 @@ darknet::YoloLayer::YoloLayer(
 darknet::YoloLayer::YoloLayer(const void* data, size_t len)
 {
 	assert(data != nullptr && len > 0);
-	const char* d = reinterpret_cast<const char*>(data);
+	const char* d = reinterpret_cast<const char*>(data), * a = d;
 	read(d, num_bboxes);
 	read(d, num_classes);
 	read(d, grid_size);
 	read(d, output_size);
+	assert(d == a + len);
 }
 
 // 几个输出
@@ -111,9 +112,89 @@ nvinfer1::IPlugin* darknet::PluginFactory::createPlugin(const char* layerName, c
 		yolo_layers.push_back(yolo);
 		return yolo.get();
 	}
+	else if (std::string(layerName).find("upsample") != std::string::npos) {
+		unique_ptr_iplugin upsample = unique_ptr_iplugin(new UpsampleLayer(serialData, serialLength));
+		upsample_layers.push_back(upsample);
+		return upsample.get();
+	}
 	else {
 		std::cerr << "ERROR: Unrecognised layer : " << layerName << std::endl;
 		assert(0);
 		return nullptr;
 	}
+}
+
+
+darknet::UpsampleLayer::UpsampleLayer(float stride, const nvinfer1::Dims input_dim) :
+	stride(stride),
+	in_dims(input_dim)
+{
+
+}
+
+darknet::UpsampleLayer::UpsampleLayer(const void* data, size_t len)
+{
+	assert(data != nullptr && len > 0);
+	const char* p = reinterpret_cast<const char*>(data), * a = p;
+	read(p, stride);
+	read(p, in_dims);
+	assert(p == a + len);
+}
+
+int darknet::UpsampleLayer::getNbOutputs() const
+{
+	return 1;
+}
+
+nvinfer1::Dims darknet::UpsampleLayer::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
+{
+	assert(index == 0 && inputs != nullptr && nbInputDims == 1 && inputs[0].nbDims == 3);
+	int c = inputs[0].d[0];
+	int h = inputs[0].d[1] * stride;
+	int w = inputs[0].d[2] * stride;
+	return Dims{ c, h ,w };
+}
+
+int darknet::UpsampleLayer::initialize()
+{
+	return 0;
+}
+
+void darknet::UpsampleLayer::terminate()
+{
+
+}
+
+size_t darknet::UpsampleLayer::getWorkspaceSize(int maxBatchSize) const
+{
+	return 0;
+}
+
+int darknet::UpsampleLayer::enqueue(int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
+{
+	NV_CUDA_CHECK(cuda_upsample_layer(inputs[0], outputs[0], batchSize, stride, in_dims, stream));
+	return 0;
+}
+
+size_t darknet::UpsampleLayer::getSerializationSize()
+{
+	return sizeof(stride);
+}
+
+void darknet::UpsampleLayer::serialize(void* buffer)
+{
+	assert(buffer != nullptr);
+	char* p = reinterpret_cast<char*>(buffer), * a = p;
+	write(p, stride);
+	write(p, in_dims);
+	assert(p == a + getSerializationSize());
+}
+
+void darknet::UpsampleLayer::configure(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, int maxBatchSize)
+{
+	assert(nbInputs == 1);
+	assert(inputDims != nullptr && inputDims[0].nbDims == 3);
+	assert(in_dims.d[0] == inputDims[0].d[0]);
+	assert(in_dims.d[1] == inputDims[0].d[1]);
+	assert(in_dims.d[2] == inputDims[0].d[2]);
 }

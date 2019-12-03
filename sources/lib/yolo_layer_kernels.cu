@@ -51,7 +51,7 @@ cudaError_t cuda_yolo_layer(
 	cudaStream_t stream
 ) {
 	assert(num_boxes == 3);
-	dim3 threads_per_blocks(16, 16, num_boxes);
+	dim3 threads_per_blocks(16, 16, 4);
 	dim3 num_blocks(grid_size / threads_per_blocks.x, grid_size / threads_per_blocks.y, 1);
 
 	const float* input_f = reinterpret_cast<const float*>(input);
@@ -62,5 +62,41 @@ cudaError_t cuda_yolo_layer(
 			input_f, output_f, grid_size, num_classes, num_boxes, output_size);
 	}
 
+	return cudaGetLastError();
+}
+
+
+// kernel_upsample
+// reference: https://github.com/pjreddie/darknet/blob/master/src/blas_kernels.cu
+__global__ void kernel_upsample(size_t N, float* x, int w, int h, int c, int batch, int stride, int forward, float scale, float* out)
+{
+	size_t i = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
+	if (i >= N) return;
+	int out_index = i;
+	int out_w = i % (w * stride);
+	i = i / (w * stride);
+	int out_h = i % (h * stride);
+	i = i / (h * stride);
+	int out_c = i % c;
+	i = i / c;
+	int b = i % batch;
+
+	int in_w = out_w / stride;
+	int in_h = out_h / stride;
+	int in_c = out_c;
+
+	int in_index = b * w * h * c + in_c * w * h + in_h * w + in_w;
+
+	if (forward) out[out_index] += scale * x[in_index];
+}
+
+
+cudaError_t cuda_upsample_layer(const void* input, void* output, int batch_size, float stride, const nvinfer1::Dims& in_dims, cudaStream_t stream)
+{
+	size_t c = in_dims.d[0];
+	size_t h = in_dims.d[1];
+	size_t w = in_dims.d[2];
+	size_t size = w * h * c * batch_size * stride * stride;
+	kernel_upsample << <cuda_gridsize(size), KERNEL_BLOCK >> > (size, in, w, h, c, batch, stride, forward, 1.0, out);
 	return cudaGetLastError();
 }

@@ -50,9 +50,40 @@ nvinfer1::ILayer* darknet::Yolo::add_conv_bn_leaky(int layer_idx, darknet::Block
 
 	pad = pad ? (k_size - 1) / 2 : 0;
 
+	std::vector<float> bn_baises, bn_weights, bn_means, bn_vars;
 
+	for (int i = 0; i < filters; ++i)
+	{
+		bn_baises.push_back(weight[weight_ptr++]);
+	}
 
+	for (int i = 0; i < filters; ++i)
+	{
+		bn_weights.push_back(weight[weight_ptr++]);
+	}
 
+	for (int i = 0; i < filters; ++i)
+	{
+		bn_means.push_back(weight[weight_ptr++]);
+	}
+
+	for (int i = 0; i < filters; ++i)
+	{
+		bn_vars.push_back(weight[weight_ptr++]);
+	}
+
+	nvinfer1::IConvolutionLayer* conv = add_conv(layer_idx, filters, k_size, stride, pad, weight, weight_ptr, input_channels, input, network);
+	trt_weights.push_back(conv->getBiasWeights());
+	trt_weights.push_back(conv->getKernelWeights());
+
+	nvinfer1::IScaleLayer* bn = add_bn(layer_idx, filters, bn_baises, bn_weights, bn_means, bn_vars, conv->getOutput(0), network);
+	trt_weights.push_back(bn->getShift());
+	trt_weights.push_back(bn->getScale());
+	trt_weights.push_back(bn->getPower());
+
+	nvinfer1::IPluginLayer* leaky = add_leakyRelu(layer_idx, bn->getOutput(0), network);
+
+	return leaky;
 }
 
 nvinfer1::ILayer* darknet::Yolo::add_conv_linear(int layer_idx, darknet::Block& block, std::vector<float>& weight, std::vector<nvinfer1::Weights>& trt_weights, int& weight_ptr, int& input_channels, nvinfer1::ITensor* input, nvinfer1::INetworkDefinition* network)
@@ -80,6 +111,22 @@ nvinfer1::ILayer* darknet::Yolo::add_conv_linear(int layer_idx, darknet::Block& 
 	trt_weights.push_back(conv->getKernelWeights());
 
 	return conv;
+}
+
+nvinfer1::ILayer* darknet::Yolo::add_upsample(int layer_idx, darknet::Block& block, std::vector<float&> weights, std::vector<nvinfer1::Weights>& trt_weights, int& weight_ptr, int& input_channels, nvinfer1::ITensor* input, nvinfer1::INetworkDefinition* network)
+{
+	assert(block.at("type") == "upsample");
+	assert(block.find("stride") != block.end());
+	nvinfer1::Dims input_dims = input->getDimensions();
+	assert(input_dims.nbDims == 3);
+
+	float stride = stof(block.at("stride"));
+
+	nvinfer1::IPlugin* upsample = new UpsampleLayer(stride, input_dims);
+	nvinfer1::IPluginLayer* upsample_layer = network->addPlugin(&input, 1, *upsample);
+
+	std::string layer_name = "upsample_" + to_string(layer_idx);
+	upsample_layer->setName(layer_name.c_str());
 }
 
 nvinfer1::IConvolutionLayer* darknet::Yolo::add_conv(int layer_idx, int filters, int kernel_size, int stride, int pad, std::vector<float>& weight, int& weight_ptr, int& input_channels, nvinfer1::ITensor* input, nvinfer1::INetworkDefinition* network)
