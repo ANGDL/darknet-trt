@@ -11,12 +11,12 @@
 // cuda_gridsize 
 // reference: https://github.com/pjreddie/darknet/blob/master/src/cuda.h
 static
-dim3 cuda_gridsize(size_t n) {
-	size_t k = (n - 1) / KERNEL_BLOCK + 1;
-	size_t x = k;
-	size_t y = 1;
+dim3 cuda_gridsize(unsigned int n) {
+	unsigned int k = (n - 1) / KERNEL_BLOCK + 1;
+	unsigned int x = k;
+	unsigned int y = 1;
 	if (x > 65535) {
-		x = ceil(sqrt(k));
+		x = static_cast<unsigned int>(ceil(sqrt(k)));
 		y = (n - 1) / (x * KERNEL_BLOCK) + 1;
 	}
 	dim3 d = { x, y, 1 };
@@ -41,8 +41,7 @@ cudaError_t cuda_upsample_layer(
 	void* output,
 	int batch_size,
 	float stride,
-	const nvinfer1::Dims& in_dims,
-	cudaStream_t stream
-);
+	int c, int h, int w,
+	cudaStream_t stream);
 
 #endif

@@ -14,7 +14,7 @@ namespace darknet {
 		buffer += sizeof(T);
 	}
 
-	template<typename T>
+	template <typename T>
 	void read(const char*& buffer, T& val) {
 		val = *reinterpret_cast<const T*>(buffer);
 		buffer += sizeof(T);
@@ -38,7 +38,9 @@ namespace darknet {
 
 	private:
 		float stride;
-		const nvinfer1::Dims in_dims;
+		int in_c;
+		int in_h;
+		int in_w;
 	};
 
 	class YoloLayer : public IPlugin
@@ -47,7 +49,7 @@ namespace darknet {
 		YoloLayer(
 			unsigned int num_bboxes,
 			unsigned int num_classes,
-			unsigned int gride_size
+			unsigned int grid_size
 		);
 		YoloLayer(const void* data, size_t len);
 
@@ -75,6 +77,7 @@ namespace darknet {
 	public:
 		PluginFactory();
 		nvinfer1::IPlugin* createPlugin(const char* layerName, const void* serialData, size_t serialLength);
+		void destroy();
 
 	private:
 

@@ -9,28 +9,28 @@ namespace darknet {
 	using namespace std;
 
 	typedef unsigned int uint;
-
 	typedef vector<map<string, string>> Blocks;
 	typedef map<string, string> Block;
 
 	const vector<string> YOLOV3_TINT_OUTPUT_NAMES{ "yolo_17", "yolo_24" };
 	const vector<string> YOLOV3_OUTPUT_NAMES{ "yolo_83", "yolo_95",  "yolo_107" };
 
-	class YoloV3Cfg;
-
 	class NetConfig {
 	public:
 		NetConfig(
-			string data_file,
-			string yolo_cfg_file,
-			string weights_file,
-			string calib_table_file,
-			string precision,
-			string input_blob_name = "data");
+			const string data_file,
+			const string yolo_cfg_file,
+			const string weights_file,
+			const string calib_table_file,
+			const string precision,
+			const string input_blob_name = "data");
 		void display_blocks();
 		bool good() const;
+		virtual const string get_network_type() const;
+		virtual const uint get_bboxes() const;
+
 	protected:
-		uint32_t init_output_classes(string data_file);
+		uint init_output_classes(string data_file);
 		vector<string> init_classes_names(string data_file);
 		Blocks parse_config2blocks(string yolo_cfg_file);
 		string find_net_property(string property, string default_value);
@@ -40,11 +40,11 @@ namespace darknet {
 
 		const string PRECISION;
 		const string INPUT_BLOB_NAME;
-		const uint32_t INPUT_W;
-		const uint32_t INPUT_H;
-		const uint32_t INPUT_C;
-		const uint32_t INPUT_SIZE;
-		const uint32_t OUTPUT_CLASSES;
+		const uint INPUT_W;
+		const uint INPUT_H;
+		const uint INPUT_C;
+		const uint INPUT_SIZE;
+		const uint OUTPUT_CLASSES;
 		const vector<string> CLASS_NAMES;
 
 		const string WEIGHTS_FLIE;
@@ -54,15 +54,18 @@ namespace darknet {
 	class YoloV3TinyCfg : public NetConfig
 	{
 	public:
-		YoloV3TinyCfg(string data_file,
-			string yolo_cfg_file,
-			string weights_file,
-			string calib_table_file,
-			string precision,
-			string input_blob_name = "data",
-			vector<string> output_names = YOLOV3_TINT_OUTPUT_NAMES);
+		YoloV3TinyCfg(
+			const string data_file,
+			const string yolo_cfg_file,
+			const string weights_file,
+			const string calib_table_file,
+			const string precision,
+			const string input_blob_name = "data",
+			const vector<string> output_names = YOLOV3_TINT_OUTPUT_NAMES);
 
 		virtual const string get_network_type() const;
+		virtual const unsigned int get_bboxes() const;
+
 	protected:
 		virtual std::vector<int> find_mask(int idx);
 		virtual std::vector<float> find_anchors();
@@ -86,12 +89,12 @@ namespace darknet {
 	{
 	public:
 		YoloV3Cfg(string data_file,
-			string yolo_cfg_file,
-			string weights_file,
-			string calib_table_file,
-			string precision,
-			string input_blob_name = "data",
-			vector<string> output_names = YOLOV3_OUTPUT_NAMES);
+			const string yolo_cfg_file,
+			const string weights_file,
+			const string calib_table_file,
+			const string precision,
+			const string input_blob_name = "data",
+			const vector<string> output_names = YOLOV3_OUTPUT_NAMES);
 
 		virtual const string get_network_type() const;
 
@@ -102,6 +105,21 @@ namespace darknet {
 		const std::vector<int> MASK_3;
 		const std::string OUTPUT_BLOB_NAME_3;
 	};
+
+
+	class DarkNetCfgFactory
+	{
+	public:
+		static NetConfig* create_network_config(
+			const string network_type,
+			const string data_file,
+			const string yolo_cfg_file,
+			const string weights_file,
+			const string calib_table_file,
+			const string precision
+		);
+	};
+
 }
 
 #endif

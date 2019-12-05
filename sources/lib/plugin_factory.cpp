@@ -1,5 +1,5 @@
 ﻿#include <assert.h>
-
+#include <algorithm>
 #include "plugin_factory.h"
 
 // 通过API调用或者网络结构构造类, 
@@ -72,7 +72,7 @@ int darknet::YoloLayer::enqueue(int batchSize, const void* const* inputs, void**
 // 获得该层所需的临时显存大小。
 size_t darknet::YoloLayer::getSerializationSize()
 {
-	return sizeof(num_bboxes) * +sizeof(num_classes) + sizeof(grid_size) + sizeof(output_size);
+	return sizeof(num_bboxes) + sizeof(num_classes) + sizeof(grid_size) + sizeof(output_size);
 }
 
 // 对该层进行初始化，在engine创建时被调用。
@@ -104,18 +104,18 @@ nvinfer1::IPlugin* darknet::PluginFactory::createPlugin(const char* layerName, c
 {
 	if (std::string(layerName).find("leaky") != std::string::npos) {
 		unique_ptr_nvplugin leaky = unique_ptr_nvplugin(nvinfer1::plugin::createPReLUPlugin(serialData, serialLength));
-		leakyReLU_layers.push_back(leaky);
-		return leaky.get();
+		leakyReLU_layers.push_back(std::move(leaky));
+		return leakyReLU_layers.back().get();
 	}
 	else if (std::string(layerName).find("yolo") != std::string::npos) {
 		unique_ptr_iplugin yolo = unique_ptr_iplugin(new YoloLayer(serialData, serialLength));
-		yolo_layers.push_back(yolo);
-		return yolo.get();
+		yolo_layers.push_back(std::move(yolo));
+		return yolo_layers.back().get();
 	}
 	else if (std::string(layerName).find("upsample") != std::string::npos) {
 		unique_ptr_iplugin upsample = unique_ptr_iplugin(new UpsampleLayer(serialData, serialLength));
-		upsample_layers.push_back(upsample);
-		return upsample.get();
+		upsample_layers.push_back(std::move(upsample));
+		return upsample_layers.back().get();
 	}
 	else {
 		std::cerr << "ERROR: Unrecognised layer : " << layerName << std::endl;
@@ -124,10 +124,30 @@ nvinfer1::IPlugin* darknet::PluginFactory::createPlugin(const char* layerName, c
 	}
 }
 
+void darknet::PluginFactory::destroy()
+{
+	for_each(leakyReLU_layers.begin(), leakyReLU_layers.end(),
+		[](unique_ptr_nvplugin& p) {
+			p.reset();
+		});
+
+	for_each(yolo_layers.begin(), yolo_layers.end(),
+		[](unique_ptr_iplugin& p) {
+			p.reset();
+		});
+
+	for_each(upsample_layers.begin(), upsample_layers.end(),
+		[](unique_ptr_iplugin& p) {
+			p.reset();
+		});
+}
+
 
 darknet::UpsampleLayer::UpsampleLayer(float stride, const nvinfer1::Dims input_dim) :
 	stride(stride),
-	in_dims(input_dim)
+	in_c(input_dim.d[0]),
+	in_h(input_dim.d[1]),
+	in_w(input_dim.d[2])
 {
 
 }
@@ -137,7 +157,9 @@ darknet::UpsampleLayer::UpsampleLayer(const void* data, size_t len)
 	assert(data != nullptr && len > 0);
 	const char* p = reinterpret_cast<const char*>(data), * a = p;
 	read(p, stride);
-	read(p, in_dims);
+	read(p, in_c);
+	read(p, in_h);
+	read(p, in_w);
 	assert(p == a + len);
 }
 
@@ -152,7 +174,7 @@ nvinfer1::Dims darknet::UpsampleLayer::getOutputDimensions(int index, const Dims
 	int c = inputs[0].d[0];
 	int h = inputs[0].d[1] * stride;
 	int w = inputs[0].d[2] * stride;
-	return Dims{ c, h ,w };
+	return DimsCHW{ c, h ,w };
 }
 
 int darknet::UpsampleLayer::initialize()
@@ -172,13 +194,13 @@ size_t darknet::UpsampleLayer::getWorkspaceSize(int maxBatchSize) const
 
 int darknet::UpsampleLayer::enqueue(int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
 {
-	NV_CUDA_CHECK(cuda_upsample_layer(inputs[0], outputs[0], batchSize, stride, in_dims, stream));
+	NV_CUDA_CHECK(cuda_upsample_layer(inputs[0], outputs[0], batchSize, stride, in_c, in_h, in_w, stream));
 	return 0;
 }
 
 size_t darknet::UpsampleLayer::getSerializationSize()
 {
-	return sizeof(stride);
+	return sizeof(stride) + sizeof(in_c) + sizeof(in_h) + sizeof(in_w);
 }
 
 void darknet::UpsampleLayer::serialize(void* buffer)
@@ -186,7 +208,9 @@ void darknet::UpsampleLayer::serialize(void* buffer)
 	assert(buffer != nullptr);
 	char* p = reinterpret_cast<char*>(buffer), * a = p;
 	write(p, stride);
-	write(p, in_dims);
+	write(p, in_c);
+	write(p, in_h);
+	write(p, in_w);
 	assert(p == a + getSerializationSize());
 }
 
@@ -194,7 +218,7 @@ void darknet::UpsampleLayer::configure(const Dims* inputDims, int nbInputs, cons
 {
 	assert(nbInputs == 1);
 	assert(inputDims != nullptr && inputDims[0].nbDims == 3);
-	assert(in_dims.d[0] == inputDims[0].d[0]);
-	assert(in_dims.d[1] == inputDims[0].d[1]);
-	assert(in_dims.d[2] == inputDims[0].d[2]);
+	assert(in_c == inputDims[0].d[0]);
+	assert(in_h == inputDims[0].d[1]);
+	assert(in_w == inputDims[0].d[2]);
 }

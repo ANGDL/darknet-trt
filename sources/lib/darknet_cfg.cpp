@@ -6,12 +6,12 @@
 
 
 darknet::NetConfig::NetConfig(
-	string data_file,
-	string yolo_cfg_file,
-	string weights_file,
-	string calib_table_file,
-	string precision,
-	string input_blob_name = "data") :
+	const string data_file,
+	const string yolo_cfg_file,
+	const string weights_file,
+	const string calib_table_file,
+	const string precision,
+	const string input_blob_name) :
 
 	is_good(true),
 	blocks(parse_config2blocks(yolo_cfg_file)),
@@ -50,6 +50,18 @@ void darknet::NetConfig::display_blocks()
 bool darknet::NetConfig::good() const
 {
 	return is_good;
+}
+
+
+const std::string darknet::NetConfig::get_network_type() const
+{
+	return "";
+}
+
+
+const unsigned int darknet::NetConfig::get_bboxes() const
+{
+	return 0;
 }
 
 unsigned int  darknet::NetConfig::init_output_classes(string data_file)
@@ -174,13 +186,13 @@ std::string darknet::NetConfig::find_net_property(string property, string defaul
 }
 
 darknet::YoloV3TinyCfg::YoloV3TinyCfg(
-	string data_file,
-	string yolo_cfg_file,
-	string weights_file,
-	string calib_table_file,
-	string precision,
-	string input_blob_name,
-	vector<string> output_names) :
+	const string data_file,
+	const string yolo_cfg_file,
+	const string weights_file,
+	const string calib_table_file,
+	const string precision,
+	const string input_blob_name,
+	const vector<string> output_names) :
 
 	NetConfig(data_file, yolo_cfg_file, weights_file, calib_table_file, precision, input_blob_name),
 	BBOXES(3),
@@ -203,6 +215,12 @@ darknet::YoloV3TinyCfg::YoloV3TinyCfg(
 const std::string darknet::YoloV3TinyCfg::get_network_type() const
 {
 	return "yolov3-tiny";
+}
+
+
+const unsigned int darknet::YoloV3TinyCfg::get_bboxes() const
+{
+	return BBOXES;
 }
 
 std::vector<int> darknet::YoloV3TinyCfg::find_mask(int idx)
@@ -242,13 +260,13 @@ std::vector<float> darknet::YoloV3TinyCfg::find_anchors()
 }
 
 darknet::YoloV3Cfg::YoloV3Cfg(
-	string data_file,
-	string yolo_cfg_file,
-	string weights_file,
-	string calib_table_file,
-	string precision,
-	string input_blob_name,
-	vector<string> output_names) :
+	const string data_file,
+	const string yolo_cfg_file,
+	const string weights_file,
+	const string calib_table_file,
+	const string precision,
+	const string input_blob_name,
+	const vector<string> output_names) :
 
 	YoloV3TinyCfg(data_file, yolo_cfg_file, weights_file, calib_table_file, precision, input_blob_name, output_names),
 	STRIDE_3(8),
@@ -263,4 +281,18 @@ darknet::YoloV3Cfg::YoloV3Cfg(
 const std::string darknet::YoloV3Cfg::get_network_type() const
 {
 	return "yolov3";
+}
+
+darknet::NetConfig* darknet::DarkNetCfgFactory::create_network_config(
+	const std::string network_type, const string data_file, const string yolo_cfg_file, const string weights_file, const string calib_table_file, const string precision)
+{
+	if (network_type == "yolov3") {
+		return new YoloV3Cfg(data_file, yolo_cfg_file, weights_file, calib_table_file, precision);
+	}
+	else if (network_type == "yolov3-tiny") {
+		return new YoloV3TinyCfg(data_file, yolo_cfg_file, weights_file, calib_table_file, precision);
+	}
+	else {
+		return nullptr;
+	}
 }
