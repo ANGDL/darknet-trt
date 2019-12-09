@@ -3,6 +3,7 @@
 #include "darknet_utils.h"
 #include "NvInfer.h"
 
+
 bool file_exits(const std::string filename)
 {
 	return std::filesystem::exists(std::filesystem::path(filename));
@@ -189,4 +190,166 @@ void print_layer_info(std::string layer_idx, std::string layer_name, std::string
 	std::cout << std::setw(20) << std::left << input_dims << std::setw(20) << std::left
 		<< output_dims;
 	std::cout << std::setw(6) << std::left << weight_ptr << std::endl;
+}
+
+float clamp(const float val, const float minVal, const float maxVal)
+{
+	assert(minVal <= maxVal);
+	return std::min(maxVal, std::max(minVal, val));
+}
+
+float clamp(const float val, const float minVal)
+{
+	return std::max(minVal, val);
+}
+
+Tensor2BBoxes::Tensor2BBoxes(
+	const unsigned int n_classes,
+	const unsigned int n_bboxes,
+	const std::vector<float> anchors,
+	const int raw_w, const int raw_h,
+	const int input_w, const int input_h) :
+	n_classes(n_classes),
+	n_bboxes(n_bboxes),
+	anchors(anchors),
+	raw_w(raw_w),
+	raw_h(raw_h),
+	input_w(input_w),
+	input_h(input_h)
+{
+
+}
+
+std::vector<BBoxInfo> Tensor2BBoxes::operator()(const float* detections, const std::vector<int> mask, const unsigned int grid_size, const unsigned int stride, const float confidence_thresh)
+{
+	float scale = std::min(static_cast<float>(input_h) / raw_h, static_cast<float>(input_w) / raw_w);
+	float dx = (input_w - scale * raw_w) / 2;
+	float dy = (input_h - scale * raw_h) / 2;
+
+	std::vector<BBoxInfo> bboxes_info;
+
+	for (unsigned int x = 0; x < grid_size; ++x)
+	{
+		for (unsigned int y = 0; y < grid_size; ++y)
+		{
+			for (unsigned int b = 0; b < n_bboxes; ++b)
+			{
+				const float pw = anchors[mask[b] * 2];
+				const float ph = anchors[mask[b] * 2 + 1];
+
+				const int num_girds = grid_size * grid_size;
+				const int bbox_idx = y * grid_size + x;
+				const int loc_idx = bbox_idx + num_girds * (b * (5 + n_classes));
+
+				// 立方体
+				const float bx = x + detections[loc_idx + 0];
+				const float by = y + detections[loc_idx + 1];
+				const float bw = pw * detections[loc_idx + 2];
+				const float bh = ph * detections[loc_idx + 3];
+
+				const float obj_score = detections[loc_idx + 4];
+
+
+				float confidence_score = 0.0f;
+				float label_idx = -1;
+
+				for (unsigned int i = 0; i < n_classes; ++i)
+				{
+					float prob = detections[loc_idx];
+					if (prob > confidence_score)
+					{
+						confidence_score = prob;
+						label_idx = i;
+					}
+				}
+
+				confidence_score *= obj_score;
+
+				if (confidence_score > confidence_thresh) {
+					BBoxInfo binfo;
+					binfo.box = convert_bbox(bx, by, bw, bh, stride);
+
+					binfo.box.x1 -= dx;
+					binfo.box.x2 -= dx;
+					binfo.box.y1 -= dy;
+					binfo.box.y2 -= dy;
+
+					binfo.box.x1 /= scale;
+					binfo.box.x2 /= scale;
+					binfo.box.y1 /= scale;
+					binfo.box.y2 /= scale;
+
+					binfo.box.x1 = clamp(binfo.box.x1, 0, raw_w);
+					binfo.box.x2 = clamp(binfo.box.x2, 0, raw_w);
+					binfo.box.y1 = clamp(binfo.box.y1, 0, raw_h);
+					binfo.box.y2 = clamp(binfo.box.y2, 0, raw_h);
+
+					binfo.label = label_idx;
+					binfo.prob = confidence_score;
+
+					bboxes_info.push_back(binfo);
+				}
+			}
+		}
+	}
+
+	return bboxes_info;
+}
+
+BBox Tensor2BBoxes::convert_bbox(const float& bx, const float& by, const float& bw, const float& bh, const int& stride)
+{
+	float x = bx * stride;
+	float y = by * stride;
+
+	float x1 = x - bw / 2;
+	float y1 = y - bh / 2;
+	float x2 = x + bw / 2;
+	float y2 = y + bh / 2;
+
+	return BBox{ x1, y1, x2, y2 };
+}
+
+
+std::vector<BBoxInfo> nms(const std::vector<BBoxInfo>& bboxes, float nms_thresh)
+{
+	std::vector<BBoxInfo> res;
+
+	if (bboxes.size() == 0) {
+		return res;
+	}
+
+	auto compute_iou = [](BBox& bbox1, BBox& bbox2) {
+		float inter_rect_x1 = static_cast<float>(std::max(bbox1.x1, bbox2.x2));
+		float inter_rect_x2 = static_cast<float>(std::min(bbox1.x1, bbox2.x2));
+		float inter_rect_y1 = static_cast<float>(std::max(bbox1.y1, bbox2.y2));
+		float inter_rect_y2 = static_cast<float>(std::min(bbox1.y1, bbox2.y2));
+
+		float inter_area = clamp(inter_rect_x2 - inter_rect_x1 + 1, 0.0f) * clamp(inter_rect_y2 - inter_rect_y1 + 1, 0.0f);
+
+		float b1_area = (bbox1.x2 - bbox1.x1 + 1) * (bbox1.y2 - bbox1.y1 + 1);
+		float b2_area = (bbox2.x2 - bbox2.x1 + 1) * (bbox2.y2 - bbox2.y1 + 1);
+
+		float iou = inter_area / (b1_area + b2_area - inter_area + 1e-16);
+
+		return iou;
+	};
+
+	std::stable_sort(bboxes.begin(), bboxes.end(), [](const BBoxInfo& b1, const BBoxInfo& b2) {
+		return b1.prob > b2.prob;
+		});
+
+	for (auto b1 : bboxes)
+	{
+		bool keep = true;
+		for (auto b2 : res) {
+			float iou = compute_iou(b1.box, b2.box);
+			keep = iou <= nms_thresh;
+		}
+
+		if (keep) {
+			res.push_back(b1);
+		}
+	}
+
+	return res;
 }

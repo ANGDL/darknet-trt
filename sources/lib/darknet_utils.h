@@ -20,6 +20,38 @@
         }                                                                                          \
     }
 
+struct BBox {
+	int x1;
+	int y1;
+	int x2;
+	int y2;
+};
+
+struct BBoxInfo
+{
+	BBox box;
+	int label;
+	float prob;
+};
+
+struct Tensor2BBoxes
+{
+	Tensor2BBoxes(const unsigned int n_classes, const unsigned int n_bboxes,
+		const std::vector<float> anchors, const int raw_w, const int raw_h, const int input_w, const int input_h);
+	std::vector<BBoxInfo> operator()(const float* detections, const std::vector<int> mask, const unsigned int gridSize, const unsigned int stride, const float confidence_thresh);
+	BBox convert_bbox(const float& bx, const float& by, const float& bw, const float& bh, const int& stride);
+
+	const unsigned int n_classes;
+	const unsigned int n_bboxes;
+	const std::vector<float> anchors;
+	const int raw_w;
+	const int raw_h;
+	const int input_w;
+	const int input_h;
+};
+
+std::vector<BBoxInfo> nms(const std::vector<BBoxInfo>& bboxes, float nms_thresh);
+
 bool file_exits(const std::string filename);
 
 std::string trim(std::string s);
@@ -39,4 +71,9 @@ void print_layer_info(int layer_idx, std::string layer_name, nvinfer1::Dims inpu
 
 void print_layer_info(std::string layer_idx, std::string layer_name, std::string input_dims,
 	std::string output_dims, std::string weight_ptr);
+
+float clamp(const float val, const float minVal, const float maxVal);
+
+float clamp(const float val, const float minVal);
+
 #endif
