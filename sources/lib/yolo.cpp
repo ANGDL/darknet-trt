@@ -33,10 +33,10 @@ darknet::Yolo::Yolo(NetConfig* config, uint batch_size, float confidence_thresh,
 		std::cout << "Creating a new TensorRT Engine" << std::endl;
 
 		if (precision == "kFLOAT") {
-			is_init = create_yolo_engine(nvinfer1::DataType::kFLOAT, planfile);
+			is_init = build(nvinfer1::DataType::kFLOAT, planfile);
 		}
 		else if (precision == "kHALF") {
-			is_init = create_yolo_engine(nvinfer1::DataType::kHALF, planfile);
+			is_init = build(nvinfer1::DataType::kHALF, planfile);
 		}
 		else if (precision == "KINT8") {
 			//TODO
@@ -59,12 +59,15 @@ darknet::Yolo::Yolo(NetConfig* config, uint batch_size, float confidence_thresh,
 		is_init = false;
 		return;
 	}
+
 	input_index = engine->getBindingIndex(config->INPUT_BLOB_NAME.c_str());
+	if (input_index == -1) {
+		is_init = false;
+		return;
+	}
 
 	NV_CUDA_CHECK(cudaStreamCreate(&cuda_stream));
-
-	if (input_index == -1 || cuda_stream == nullptr)
-	{
+	if (cuda_stream == nullptr) {
 		is_init = false;
 		return;
 	}
@@ -93,7 +96,7 @@ darknet::Yolo::~Yolo()
 	}
 }
 
-bool darknet::Yolo::create_yolo_engine(const nvinfer1::DataType data_type, const std::string planfile_path/*, Int8EntropyCalibrator* calibrator*/)
+bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string planfile_path/*, Int8EntropyCalibrator* calibrator*/)
 {
 	assert(file_exits(config->WEIGHTS_FLIE));
 	// 解析网络结构
@@ -136,10 +139,10 @@ bool darknet::Yolo::create_yolo_engine(const nvinfer1::DataType data_type, const
 	std::fill(div_wights, div_wights + config->INPUT_SIZE, 255.0);
 	nvinfer1::Dims div_dim{
 		3,
-		{config->INPUT_C, config->INPUT_H, config->INPUT_W},
+		{static_cast<int>(config->INPUT_C), static_cast<int>(config->INPUT_H), static_cast<int>(config->INPUT_W)},
 		{nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kSPATIAL}
 	};
-	nvinfer1::Weights div_weights_trt{ nvinfer1::DataType::kFLOAT, div_wights, config->INPUT_SIZE };
+	nvinfer1::Weights div_weights_trt{ nvinfer1::DataType::kFLOAT, div_wights, static_cast<int64_t>(config->INPUT_SIZE) };
 
 	nvinfer1::IConstantLayer* div_layer = network->addConstant(div_dim, div_weights_trt);
 	if (nullptr == div_layer) {
@@ -169,6 +172,7 @@ bool darknet::Yolo::create_yolo_engine(const nvinfer1::DataType data_type, const
 	{
 		const Block& block = blocks[i];
 		const std::string b_type = block.at("type");
+		assert(get_num_channels(previous) == channels);
 
 		if (b_type == "net") {
 			// print
@@ -195,6 +199,7 @@ bool darknet::Yolo::create_yolo_engine(const nvinfer1::DataType data_type, const
 			output_tensors.push_back(previous);
 
 			channels = get_num_channels(previous);
+			previous->setName(conv->getName());
 		}
 		else if (b_type == "shortcut") {
 			assert(block.find("from") != block.end());
@@ -226,6 +231,7 @@ bool darknet::Yolo::create_yolo_engine(const nvinfer1::DataType data_type, const
 			output_tensors.push_back(shortcut_out);
 			channels = get_num_channels(shortcut_out);
 			previous = shortcut_out;
+			previous->setName(layer_name.c_str());
 		}
 		else if (b_type == "route") {
 			assert(block.find("layers") != block.end());
@@ -278,6 +284,7 @@ bool darknet::Yolo::create_yolo_engine(const nvinfer1::DataType data_type, const
 				previous = route_layer->getOutput(0);
 				output_tensors.push_back(previous);
 				channels = get_num_channels(concat_input[0]) + get_num_channels(concat_input[1]);
+				previous->setName(layer_name.c_str());
 			}
 			else {
 				std::cout << "error with route layer > 2 !" << std::endl;
@@ -311,9 +318,11 @@ bool darknet::Yolo::create_yolo_engine(const nvinfer1::DataType data_type, const
 
 			previous = yolo_output;
 			channels = get_num_channels(previous);
+			previous->setName(layer_name.c_str());
 		}
 		else if (b_type == "upsample") {
 			nvinfer1::ILayer* upsample_layer = add_upsample(i, block, weights, trt_weights, weight_ptr, channels, previous, network.get());
+			//nvinfer1::ILayer* upsample_layer = add_upsample2(i, block, weights, channels, previous, network.get());
 			if (nullptr == upsample_layer)
 			{
 				std::cout << "add upsample_" << to_string(i) << " layer error " << __func__ << ": " << __LINE__ << std::endl;
@@ -326,6 +335,7 @@ bool darknet::Yolo::create_yolo_engine(const nvinfer1::DataType data_type, const
 			previous = upsample_layer->getOutput(0);
 			channels = get_num_channels(previous);
 			output_tensors.push_back(previous);
+			previous->setName(upsample_layer->getName());
 		}
 		else if (b_type == "maxpool") {
 			// 设置same padding
@@ -345,6 +355,7 @@ bool darknet::Yolo::create_yolo_engine(const nvinfer1::DataType data_type, const
 			previous = pooling_layer->getOutput(0);
 			channels = get_num_channels(previous);
 			output_tensors.push_back(previous);
+			previous->setName(pooling_layer->getName());
 		}
 		else {
 			std::cout << "Unsupported layer type --> \"" << blocks.at(i).at("type") << "\""
@@ -418,6 +429,7 @@ nvinfer1::ILayer* darknet::Yolo::add_maxpool(int layer_idx, const darknet::Block
 	return pool;
 }
 
+
 nvinfer1::ILayer* darknet::Yolo::add_conv_bn_leaky(int layer_idx, const darknet::Block& block, std::vector<float>& weight,
 	std::vector<nvinfer1::Weights>& trt_weights, int& weight_ptr, int& input_channels, nvinfer1::ITensor* input, nvinfer1::INetworkDefinition* network)
 {
@@ -455,7 +467,7 @@ nvinfer1::ILayer* darknet::Yolo::add_conv_bn_leaky(int layer_idx, const darknet:
 
 	for (int i = 0; i < filters; ++i)
 	{
-		bn_vars.push_back(weight[weight_ptr++]);
+		bn_vars.push_back(sqrtf(weight[weight_ptr++] + 1.0e-5));
 	}
 
 	nvinfer1::IConvolutionLayer* conv = add_conv(layer_idx, filters, k_size, stride, pad, weight, weight_ptr, input_channels, input, network, false);
@@ -508,7 +520,7 @@ nvinfer1::ILayer* darknet::Yolo::add_conv_linear(int layer_idx, const darknet::B
 	return conv;
 }
 
-nvinfer1::ILayer* darknet::Yolo::add_upsample(int layer_idx, const darknet::Block& block, std::vector<float> weights, std::vector<nvinfer1::Weights>& trt_weights, int& weight_ptr, int& input_channels, nvinfer1::ITensor* input, nvinfer1::INetworkDefinition* network)
+nvinfer1::ILayer* darknet::Yolo::add_upsample(int layer_idx, const darknet::Block& block, std::vector<float>& weights, std::vector<nvinfer1::Weights>& trt_weights, int& weight_ptr, int& input_channels, nvinfer1::ITensor* input, nvinfer1::INetworkDefinition* network)
 {
 	assert(block.at("type") == "upsample");
 	assert(block.find("stride") != block.end());
@@ -591,7 +603,7 @@ nvinfer1::IScaleLayer* darknet::Yolo::add_bn(int layer_idx, int filters, std::ve
 	for (int i = 0; i < filters; i++)
 	{
 		scale_buff[i] = bn_weights[i] / bn_var[i];
-		shift_buff[i] = bn_biases[i] - (bn_mean[i] * bn_weights[i]) / bn_var[i];
+		shift_buff[i] = bn_biases[i] - ((bn_mean[i] * bn_weights[i]) / bn_var[i]);
 		power_buff[i] = 1.0;
 	}
 

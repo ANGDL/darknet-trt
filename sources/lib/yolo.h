@@ -95,7 +95,7 @@ namespace darknet {
 		bool is_init;
 
 	private:
-		bool create_yolo_engine(const nvinfer1::DataType data_type, const std::string planfile_path /*, Int8EntropyCalibrator* calibrator*/);
+		bool build(const nvinfer1::DataType data_type, const std::string planfile_path /*, Int8EntropyCalibrator* calibrator*/);
 
 		nvinfer1::ILayer* add_maxpool(int layer_idx, const darknet::Block& block, nvinfer1::ITensor* input, nvinfer1::INetworkDefinition* network);
 
@@ -124,7 +124,7 @@ namespace darknet {
 		nvinfer1::ILayer* add_upsample(
 			int layer_idx,
 			const darknet::Block& block,
-			std::vector<float> weights,
+			std::vector<float>& weights,
 			std::vector<nvinfer1::Weights>& trt_weights,
 			int& weight_ptr,
 			int& input_channels,
