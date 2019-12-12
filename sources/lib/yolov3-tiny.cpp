@@ -32,7 +32,7 @@ darknet::YoloV3Tiny::YoloV3Tiny(
 	NV_CUDA_CHECK(cudaMallocHost(&trt_output_buffers[1], (size_t)batch_size * net_cfg->OUTPUT_SIZE_2 * sizeof(float)));
 }
 
-void darknet::YoloV3Tiny::infer(const float* input)
+void darknet::YoloV3Tiny::infer(const unsigned char* input)
 {
 	NV_CUDA_CHECK(cudaMemcpyAsync(bindings[input_index], input, (size_t)batch_size * net_cfg->INPUT_SIZE * sizeof(float), cudaMemcpyHostToDevice, cuda_stream));
 	context->enqueue(batch_size, bindings.data(), cuda_stream, nullptr);
@@ -41,7 +41,7 @@ void darknet::YoloV3Tiny::infer(const float* input)
 	cudaStreamSynchronize(cuda_stream);
 }
 
-std::vector<BBoxInfo> darknet::YoloV3Tiny::get_detecions(const int image_idx, const int image_h, const int image_w)
+std::vector<BBoxInfo> darknet::YoloV3Tiny::get_detecions(const int image_idx, const int image_w, const int image_h)
 {
 	std::vector<BBoxInfo> bboxes1 = convert_to_bboxes(
 		&trt_output_buffers[0][image_idx * net_cfg->OUTPUT_SIZE_1],

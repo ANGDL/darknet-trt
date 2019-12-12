@@ -8,8 +8,8 @@ namespace darknet {
 	{
 	public:
 		explicit YoloV3Tiny(NetConfig* config, uint batch_size, float confidence_thresh, float nms_thresh);
-		void infer(const float* input);
-		std::vector<BBoxInfo> get_detecions(const int image_idx, const int image_h, const int image_w);
+		void infer(const unsigned char* input);
+		std::vector<BBoxInfo> get_detecions(const int image_idx, const int image_w, const int image_h);
 
 		YoloV3TinyCfg* net_cfg;
 
