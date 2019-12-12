@@ -198,10 +198,10 @@ darknet::YoloV3TinyCfg::YoloV3TinyCfg(
 	BBOXES(3),
 	STRIDE_1(32),
 	STRIDE_2(16),
-	GRID_SIZE_1(INPUT_W / STRIDE_1),
-	GRID_SIZE_2(INPUT_W / STRIDE_2),
-	OUTPUT_SIZE_1(GRID_SIZE_1* GRID_SIZE_1* BBOXES* (OUTPUT_CLASSES + 5)),
-	OUTPUT_SIZE_2(GRID_SIZE_2* GRID_SIZE_2* BBOXES* (OUTPUT_CLASSES + 5)),
+	GRID_SIZE_1(INPUT_H / STRIDE_1),
+	GRID_SIZE_2(INPUT_H / STRIDE_2),
+	OUTPUT_SIZE_1(GRID_SIZE_1* GRID_SIZE_1* (BBOXES* (OUTPUT_CLASSES + 5))),
+	OUTPUT_SIZE_2(GRID_SIZE_2* GRID_SIZE_2* (BBOXES* (OUTPUT_CLASSES + 5))),
 	MASK_1(find_mask(1)),
 	MASK_2(find_mask(2)),
 	OUTPUT_BLOB_NAME_1(output_names[0]),
@@ -271,7 +271,7 @@ darknet::YoloV3Cfg::YoloV3Cfg(
 	YoloV3TinyCfg(data_file, yolo_cfg_file, weights_file, calib_table_file, precision, input_blob_name, output_names),
 	STRIDE_3(8),
 	GRID_SIZE_3(INPUT_H / STRIDE_3),
-	OUTPUT_SIZE_3(GRID_SIZE_3* GRID_SIZE_3* (OUTPUT_CLASSES + 5)),
+	OUTPUT_SIZE_3(GRID_SIZE_3* GRID_SIZE_3* BBOXES* (OUTPUT_CLASSES + 5)),
 	MASK_3(find_mask(3)),
 	OUTPUT_BLOB_NAME_3(output_names[2])
 {
