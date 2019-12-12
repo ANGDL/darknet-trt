@@ -253,6 +253,7 @@ std::vector<float> darknet::YoloV3TinyCfg::find_anchors()
 			for (auto& c : anchors) {
 				res.push_back(stof(c));
 			}
+			break;
 		}
 	}
 

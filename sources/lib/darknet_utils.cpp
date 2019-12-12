@@ -326,39 +326,21 @@ std::vector<BBoxInfo> nms(std::vector<BBoxInfo>& bboxes, float nms_thresh)
 		return res;
 	}
 
-	auto overlap1D = [](float x1min, float x1max, float x2min, float x2max) -> float {
-		if (x1min > x2min)
-		{
-			std::swap(x1min, x2min);
-			std::swap(x1max, x2max);
-		}
-		return x1max < x2min ? 0 : std::min(x1max, x2max) - x2min;
+	auto compute_iou = [](BBox& bbox1, BBox& bbox2) {
+		float inter_rect_x1 = static_cast<float>(std::max(bbox1.x1, bbox2.x1));
+		float inter_rect_x2 = static_cast<float>(std::min(bbox1.x2, bbox2.x2));
+		float inter_rect_y1 = static_cast<float>(std::max(bbox1.y1, bbox2.y1));
+		float inter_rect_y2 = static_cast<float>(std::min(bbox1.y2, bbox2.y2));
+
+		float inter_area = clamp(inter_rect_x2 - inter_rect_x1 + 1, 0.0f) * clamp(inter_rect_y2 - inter_rect_y1 + 1, 0.0f);
+
+		float b1_area = (bbox1.x2 - bbox1.x1 + 1) * (bbox1.y2 - bbox1.y1 + 1);
+		float b2_area = (bbox2.x2 - bbox2.x1 + 1) * (bbox2.y2 - bbox2.y1 + 1);
+
+		float iou = inter_area / (b1_area + b2_area - inter_area + 1e-16);
+
+		return iou;
 	};
-	auto compute_iou = [&overlap1D](BBox& bbox1, BBox& bbox2) -> float {
-		float overlapX = overlap1D(bbox1.x1, bbox1.x2, bbox2.x1, bbox2.x2);
-		float overlapY = overlap1D(bbox1.y1, bbox1.y2, bbox2.y1, bbox2.y2);
-		float area1 = (bbox1.x2 - bbox1.x1) * (bbox1.y2 - bbox1.y1);
-		float area2 = (bbox2.x2 - bbox2.x1) * (bbox2.y2 - bbox2.y1);
-		float overlap2D = overlapX * overlapY;
-		float u = area1 + area2 - overlap2D;
-		return u == 0 ? 0 : overlap2D / u;
-	};
-
-	//auto compute_iou = [](BBox& bbox1, BBox& bbox2) {
-	//	float inter_rect_x1 = static_cast<float>(std::max(bbox1.x1, bbox2.x2));
-	//	float inter_rect_x2 = static_cast<float>(std::min(bbox1.x1, bbox2.x2));
-	//	float inter_rect_y1 = static_cast<float>(std::max(bbox1.y1, bbox2.y2));
-	//	float inter_rect_y2 = static_cast<float>(std::min(bbox1.y1, bbox2.y2));
-
-	//	float inter_area = clamp(inter_rect_x2 - inter_rect_x1 + 1, 0.0f) * clamp(inter_rect_y2 - inter_rect_y1 + 1, 0.0f);
-
-	//	float b1_area = (bbox1.x2 - bbox1.x1 + 1) * (bbox1.y2 - bbox1.y1 + 1);
-	//	float b2_area = (bbox2.x2 - bbox2.x1 + 1) * (bbox2.y2 - bbox2.y1 + 1);
-
-	//	float iou = inter_area / (b1_area + b2_area - inter_area + 1e-16);
-
-	//	return iou;
-	//};
 
 	std::stable_sort(bboxes.begin(), bboxes.end(), [](const BBoxInfo& b1, const BBoxInfo& b2) {
 		return b1.prob > b2.prob;
