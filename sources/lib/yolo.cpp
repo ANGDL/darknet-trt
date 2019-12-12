@@ -96,6 +96,11 @@ darknet::Yolo::~Yolo()
 	}
 }
 
+bool darknet::Yolo::good() const
+{
+	return is_init;
+}
+
 bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string planfile_path/*, Int8EntropyCalibrator* calibrator*/)
 {
 	assert(file_exits(config->WEIGHTS_FLIE));
@@ -168,7 +173,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 	network->setPoolingOutputDimensionsFormula(tiny_maxpool_padding_formula.get());
 
 	// 构建网络
-	for (size_t i = 0; i < blocks.size(); ++i)
+	for (int i = 0; i < blocks.size(); ++i)
 	{
 		const Block& block = blocks[i];
 		const std::string b_type = block.at("type");
@@ -409,6 +414,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 
 	return true;
 }
+
 
 nvinfer1::ILayer* darknet::Yolo::add_maxpool(int layer_idx, const darknet::Block& block, nvinfer1::ITensor* input, nvinfer1::INetworkDefinition* network)
 {

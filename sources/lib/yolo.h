@@ -73,6 +73,7 @@ namespace darknet {
 	public:
 		Yolo(NetConfig* config, uint batch_size, float confidence_thresh, float nms_thresh);
 		~Yolo();
+		bool good() const;
 
 	protected:
 		std::unique_ptr<NetConfig> config;
