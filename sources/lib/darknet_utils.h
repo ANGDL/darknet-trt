@@ -21,10 +21,10 @@
     }
 
 struct BBox {
-	int x1;
-	int y1;
-	int x2;
-	int y2;
+	float x1;
+	float y1;
+	float x2;
+	float y2;
 };
 
 struct BBoxInfo
@@ -36,21 +36,20 @@ struct BBoxInfo
 
 struct Tensor2BBoxes
 {
+	Tensor2BBoxes();
 	Tensor2BBoxes(const unsigned int n_classes, const unsigned int n_bboxes,
-		const std::vector<float> anchors, const int raw_w, const int raw_h, const int input_w, const int input_h);
-	std::vector<BBoxInfo> operator()(const float* detections, const std::vector<int> mask, const unsigned int gridSize, const unsigned int stride, const float confidence_thresh);
+		const std::vector<float> anchors, const int input_w, const int input_h);
+	std::vector<BBoxInfo> operator()(const float* detections, const std::vector<int> mask, const unsigned int gridSize, const unsigned int stride, const float confidence_thresh, const int raw_w, const int raw_h);
 	BBox convert_bbox(const float& bx, const float& by, const float& bw, const float& bh, const int& stride);
 
-	const unsigned int n_classes;
-	const unsigned int n_bboxes;
-	const std::vector<float> anchors;
-	const int raw_w;
-	const int raw_h;
-	const int input_w;
-	const int input_h;
+	unsigned int n_classes;
+	unsigned int n_bboxes;
+	std::vector<float> anchors;
+	int input_w;
+	int input_h;
 };
 
-std::vector<BBoxInfo> nms(const std::vector<BBoxInfo>& bboxes, float nms_thresh);
+std::vector<BBoxInfo> nms(std::vector<BBoxInfo>& bboxes, float nms_thresh);
 
 bool file_exits(const std::string filename);
 

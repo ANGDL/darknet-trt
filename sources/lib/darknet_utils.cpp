@@ -207,20 +207,23 @@ Tensor2BBoxes::Tensor2BBoxes(
 	const unsigned int n_classes,
 	const unsigned int n_bboxes,
 	const std::vector<float> anchors,
-	const int raw_w, const int raw_h,
 	const int input_w, const int input_h) :
 	n_classes(n_classes),
 	n_bboxes(n_bboxes),
 	anchors(anchors),
-	raw_w(raw_w),
-	raw_h(raw_h),
 	input_w(input_w),
 	input_h(input_h)
 {
 
 }
 
-std::vector<BBoxInfo> Tensor2BBoxes::operator()(const float* detections, const std::vector<int> mask, const unsigned int grid_size, const unsigned int stride, const float confidence_thresh)
+
+Tensor2BBoxes::Tensor2BBoxes()
+{
+
+}
+
+std::vector<BBoxInfo> Tensor2BBoxes::operator()(const float* detections, const std::vector<int> mask, const unsigned int grid_size, const unsigned int stride, const float confidence_thresh, const int raw_w, const int raw_h)
 {
 	float scale = std::min(static_cast<float>(input_h) / raw_h, static_cast<float>(input_w) / raw_w);
 	float dx = (input_w - scale * raw_w) / 2;
@@ -238,24 +241,27 @@ std::vector<BBoxInfo> Tensor2BBoxes::operator()(const float* detections, const s
 				const float ph = anchors[mask[b] * 2 + 1];
 
 				const int num_girds = grid_size * grid_size;
-				const int bbox_idx = y * grid_size + x;
-				const int loc_idx = bbox_idx + num_girds * (b * (5 + n_classes));
+				const int grid_idx = y * grid_size + x;
 
 				// 立方体
-				const float bx = x + detections[loc_idx + 0];
-				const float by = y + detections[loc_idx + 1];
-				const float bw = pw * detections[loc_idx + 2];
-				const float bh = ph * detections[loc_idx + 3];
+				const float bx = x + detections[grid_idx + num_girds * (b * (5 + n_classes) + 0)];
+				const float by = y + detections[grid_idx + num_girds * (b * (5 + n_classes) + 1)];
+				const float bw = pw * detections[grid_idx + num_girds * (b * (5 + n_classes) + 2)];
+				const float bh = ph * detections[grid_idx + num_girds * (b * (5 + n_classes) + 3)];
 
-				const float obj_score = detections[loc_idx + 4];
+				const float obj_score = detections[grid_idx + num_girds * (b * (5 + n_classes) + 4)];
 
 
 				float confidence_score = 0.0f;
-				float label_idx = -1;
+				int label_idx = -1;
 
 				for (unsigned int i = 0; i < n_classes; ++i)
 				{
-					float prob = detections[loc_idx];
+					float prob = detections[grid_idx + num_girds * (b * (5 + n_classes) + (5 + i))];
+					//if ((int)prob == 1)
+					//{
+					//	std::cout << i << ": " << prob << std::endl;
+					//}
 					if (prob > confidence_score)
 					{
 						confidence_score = prob;
@@ -267,6 +273,8 @@ std::vector<BBoxInfo> Tensor2BBoxes::operator()(const float* detections, const s
 
 				if (confidence_score > confidence_thresh) {
 					BBoxInfo binfo;
+					//if (bw >= -1e-9 && bw < 1e-9)
+					//	continue;
 					binfo.box = convert_bbox(bx, by, bw, bh, stride);
 
 					binfo.box.x1 -= dx;
@@ -310,7 +318,7 @@ BBox Tensor2BBoxes::convert_bbox(const float& bx, const float& by, const float& 
 }
 
 
-std::vector<BBoxInfo> nms(const std::vector<BBoxInfo>& bboxes, float nms_thresh)
+std::vector<BBoxInfo> nms(std::vector<BBoxInfo>& bboxes, float nms_thresh)
 {
 	std::vector<BBoxInfo> res;
 
@@ -318,21 +326,39 @@ std::vector<BBoxInfo> nms(const std::vector<BBoxInfo>& bboxes, float nms_thresh)
 		return res;
 	}
 
-	auto compute_iou = [](BBox& bbox1, BBox& bbox2) {
-		float inter_rect_x1 = static_cast<float>(std::max(bbox1.x1, bbox2.x2));
-		float inter_rect_x2 = static_cast<float>(std::min(bbox1.x1, bbox2.x2));
-		float inter_rect_y1 = static_cast<float>(std::max(bbox1.y1, bbox2.y2));
-		float inter_rect_y2 = static_cast<float>(std::min(bbox1.y1, bbox2.y2));
-
-		float inter_area = clamp(inter_rect_x2 - inter_rect_x1 + 1, 0.0f) * clamp(inter_rect_y2 - inter_rect_y1 + 1, 0.0f);
-
-		float b1_area = (bbox1.x2 - bbox1.x1 + 1) * (bbox1.y2 - bbox1.y1 + 1);
-		float b2_area = (bbox2.x2 - bbox2.x1 + 1) * (bbox2.y2 - bbox2.y1 + 1);
-
-		float iou = inter_area / (b1_area + b2_area - inter_area + 1e-16);
-
-		return iou;
+	auto overlap1D = [](float x1min, float x1max, float x2min, float x2max) -> float {
+		if (x1min > x2min)
+		{
+			std::swap(x1min, x2min);
+			std::swap(x1max, x2max);
+		}
+		return x1max < x2min ? 0 : std::min(x1max, x2max) - x2min;
 	};
+	auto compute_iou = [&overlap1D](BBox& bbox1, BBox& bbox2) -> float {
+		float overlapX = overlap1D(bbox1.x1, bbox1.x2, bbox2.x1, bbox2.x2);
+		float overlapY = overlap1D(bbox1.y1, bbox1.y2, bbox2.y1, bbox2.y2);
+		float area1 = (bbox1.x2 - bbox1.x1) * (bbox1.y2 - bbox1.y1);
+		float area2 = (bbox2.x2 - bbox2.x1) * (bbox2.y2 - bbox2.y1);
+		float overlap2D = overlapX * overlapY;
+		float u = area1 + area2 - overlap2D;
+		return u == 0 ? 0 : overlap2D / u;
+	};
+
+	//auto compute_iou = [](BBox& bbox1, BBox& bbox2) {
+	//	float inter_rect_x1 = static_cast<float>(std::max(bbox1.x1, bbox2.x2));
+	//	float inter_rect_x2 = static_cast<float>(std::min(bbox1.x1, bbox2.x2));
+	//	float inter_rect_y1 = static_cast<float>(std::max(bbox1.y1, bbox2.y2));
+	//	float inter_rect_y2 = static_cast<float>(std::min(bbox1.y1, bbox2.y2));
+
+	//	float inter_area = clamp(inter_rect_x2 - inter_rect_x1 + 1, 0.0f) * clamp(inter_rect_y2 - inter_rect_y1 + 1, 0.0f);
+
+	//	float b1_area = (bbox1.x2 - bbox1.x1 + 1) * (bbox1.y2 - bbox1.y1 + 1);
+	//	float b2_area = (bbox2.x2 - bbox2.x1 + 1) * (bbox2.y2 - bbox2.y1 + 1);
+
+	//	float iou = inter_area / (b1_area + b2_area - inter_area + 1e-16);
+
+	//	return iou;
+	//};
 
 	std::stable_sort(bboxes.begin(), bboxes.end(), [](const BBoxInfo& b1, const BBoxInfo& b2) {
 		return b1.prob > b2.prob;
@@ -342,8 +368,13 @@ std::vector<BBoxInfo> nms(const std::vector<BBoxInfo>& bboxes, float nms_thresh)
 	{
 		bool keep = true;
 		for (auto b2 : res) {
-			float iou = compute_iou(b1.box, b2.box);
-			keep = iou <= nms_thresh;
+			if (keep) {
+				float iou = compute_iou(b1.box, b2.box);
+				keep = iou <= nms_thresh;
+			}
+			else {
+				break;
+			}
 		}
 
 		if (keep) {
