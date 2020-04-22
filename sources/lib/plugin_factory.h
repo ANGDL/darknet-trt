@@ -43,6 +43,7 @@ namespace darknet {
 		int in_w;
 	};
 
+	// YOLO Layer
 	class YoloLayer : public IPlugin
 	{
 	public:
@@ -72,6 +73,39 @@ namespace darknet {
 		size_t output_size;
 	};
 
+	class DecodePlugin : public nvinfer1::IPluginV2Ext
+	{
+	private:
+		float score_thresh;
+		int top_n;
+		std::vector<float> anchors;
+
+		float stride;
+
+		size_t grid_size;
+		size_t num_anchors;
+		size_t num_classes;
+
+	protected:
+		void deserialize(void const* data, size_t length);
+		void serialize(void* buffer) const override;
+		size_t getSerializationSize() const override;
+
+	public:
+		DecodePlugin(float score_thresh, int top_n, std::vector<float>const& anchors, int stride,
+			size_t grid_size, size_t num_anchors, size_t num_classes
+		);
+
+		DecodePlugin(void const* data, size_t length);
+
+		const char* getPluginType() const override;
+		const char* getPluginVersion() const override;
+		int getNbOutputs() const override;
+		Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
+	};
+
+
+	// Plugin Factory
 	class PluginFactory : public nvinfer1::IPluginFactory
 	{
 	public:

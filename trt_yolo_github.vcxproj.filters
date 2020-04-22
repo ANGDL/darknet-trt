@@ -30,13 +30,16 @@
     <ClInclude Include="sources\lib\yolo.h">
       <Filter>yolo</Filter>
     </ClInclude>
-    <ClInclude Include="sources\lib\yolo_plagin.h">
-      <Filter>yolo</Filter>
-    </ClInclude>
-    <ClInclude Include="sources\lib\plagin_factory.h">
-      <Filter>yolo</Filter>
-    </ClInclude>
     <ClInclude Include="sources\lib\yolo_layer_kernels.cuh">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\plugin_factory.h">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\yolov3-tiny.h">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\yolov3.h">
       <Filter>yolo</Filter>
     </ClInclude>
   </ItemGroup>
@@ -50,7 +53,16 @@
     <ClCompile Include="sources\apps\test.cpp">
       <Filter>app</Filter>
     </ClCompile>
-    <ClCompile Include="sources\lib\plagin_factory.cpp">
+    <ClCompile Include="sources\lib\plugin_factory.cpp">
+      <Filter>yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="sources\lib\yolo.cpp">
+      <Filter>yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="sources\lib\yolov3-tiny.cpp">
+      <Filter>yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="sources\lib\yolov3.cpp">
       <Filter>yolo</Filter>
     </ClCompile>
   </ItemGroup>

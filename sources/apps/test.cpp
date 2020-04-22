@@ -1,5 +1,6 @@
 ﻿#include <iostream>
 #include <filesystem>
+#include <chrono>
 #include "../lib/darknet_cfg.h"
 #include "../lib/yolo.h"
 #include "../lib/yolov3-tiny.h"
@@ -210,33 +211,52 @@ void test_yolov3_tiny_infer()
 	//if (!cap.isOpened())  // check if we succeeded
 	//	return;
 
-	float* input_buff = new float[(size_t)net.net_cfg->INPUT_SIZE * batch_size];
-	float* p = input_buff;
+	uchar* input_buff = (uchar*)malloc(cfg->INPUT_SIZE * sizeof(float));
+	if (input_buff == nullptr)
+	{
+		return;
+	}
+
+	uchar* p = input_buff;
 
 	std::vector<cv::Scalar> color;
 	for (int i = 0; i < cfg->OUTPUT_CLASSES; ++i) color.push_back(randomColor(cv::RNG(244)));
 
 	std::vector<cv::Mat> frames;
-	cv::Mat frame = cv::imread("dog.jpg");
+	cv::Mat frame = cv::imread("person.jpg");
 	//cv::imshow("frame", frame);
 	//cv::waitKey(0);
 
-	cv::Mat resized = prepare_image(frame, net.net_cfg->INPUT_W, net.net_cfg->INPUT_H);
 
+	for (int i = 0; i < batch_size; ++i) {
+		frames.push_back(frame.clone());
+	}
+
+	//input_mat = blob_from_mats(frames, net.net_cfg->INPUT_W, net.net_cfg->INPUT_H);
+
+	//net.infer(input_mat.data);
+	//for (int i = 0; i < frames.size(); ++i) {
+	//	auto bboxes = net.get_detecions(i, frame.cols, frame.rows);
+	//	draw_img(bboxes, frames[i], color, cfg->CLASS_NAMES);
+	//}
+
+	cv::Mat resized;
+	cv::resize(frame, resized, cv::Size(net.net_cfg->INPUT_W, net.net_cfg->INPUT_H));
 	cv::Mat resized_f;
 	if (resized.depth() != CV_32FC3) {
 		resized.convertTo(resized_f, CV_32FC3, 1.);
 	}
 
-	//cv::imwrite("resized_f.jpg", resized_f);
-	//cv::imshow("resized_f", resized_f);
-	//cv::waitKey(0);
+	cv::imwrite("resized_f.jpg", resized);
+	cv::imshow("resized_f", resized);
+	cv::waitKey(0);
 
 	for (int i = 0; i < batch_size; ++i) {
 		memcpy(p, resized_f.data, net.net_cfg->INPUT_SIZE * sizeof(float));
-		p += net.net_cfg->INPUT_SIZE;
-		frames.push_back(frame.clone());
+		p += net.net_cfg->INPUT_SIZE * sizeof(float);
 	}
+
+	assert(p == input_buff + cfg->INPUT_SIZE * sizeof(float));
 
 	net.infer(input_buff);
 	for (int i = 0; i < frames.size(); ++i) {
@@ -256,7 +276,7 @@ void test_yolov3_infer()
 	std::string cfg_file = curr_path + "/config/yolov3.cfg";
 	std::string weights_file = curr_path + "/data/yolov3.weights";
 	std::string calib_table_file = "";
-	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3", data_file, cfg_file, weights_file, calib_table_file, "kFLOAT");
+	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3", data_file, cfg_file, weights_file, calib_table_file, "kHALF");
 	darknet::YoloV3 net(cfg, batch_size, 0.5, 0.5);
 
 
@@ -270,7 +290,7 @@ void test_yolov3_infer()
 
 	std::vector<cv::Mat> frames;
 
-	cv::Mat frame = cv::imread("dog.jpg", CV_LOAD_IMAGE_COLOR);
+	cv::Mat frame = cv::imread("eagle.jpg", CV_LOAD_IMAGE_COLOR);
 	//cv::imshow("frame", frame);
 	//cv::waitKey(0);
 
@@ -282,10 +302,17 @@ void test_yolov3_infer()
 
 	input_mat = blob_from_mats(frames, net.net_cfg->INPUT_W, net.net_cfg->INPUT_H);
 
+	auto start_time = std::chrono::system_clock::now();
+
 	net.infer(input_mat.data);
+
+	auto end_time = std::chrono::system_clock::now();
+	std::chrono::duration<double> elapsed_time = end_time - start_time;
+	std::cout << "elapsed time: " << elapsed_time.count() * 1000 << "ms" << std::endl;
+
 	for (int i = 0; i < frames.size(); ++i) {
 		auto bboxes = net.get_detecions(i, frame.cols, frame.rows);
-		draw_img(bboxes, frames[i], color, cfg->CLASS_NAMES);
+		//draw_img(bboxes, frames[i], color, cfg->CLASS_NAMES);
 	}
 }
 

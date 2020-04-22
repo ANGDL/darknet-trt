@@ -1,0 +1,8 @@
+*.o
+*.dSYM
+*.csv
+*.out
+*.pyc
+x64/
+.vs/
+*.engine
