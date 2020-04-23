@@ -73,7 +73,7 @@ namespace darknet {
 		size_t output_size;
 	};
 
-	class DecodePlugin : public nvinfer1::IPluginV2Ext
+	class DecodePlugin : public nvinfer1::IPlugin
 	{
 	private:
 		float score_thresh;
@@ -88,8 +88,12 @@ namespace darknet {
 
 	protected:
 		void deserialize(void const* data, size_t length);
-		void serialize(void* buffer) const override;
-		size_t getSerializationSize() const override;
+		void serialize(void* buffer) override;
+		size_t getSerializationSize() override;
+
+		int initialize() override;
+		int enqueue(int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
+		void configure(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, int maxBatchSize) override;
 
 	public:
 		DecodePlugin(float score_thresh, int top_n, std::vector<float>const& anchors, int stride,
@@ -98,10 +102,10 @@ namespace darknet {
 
 		DecodePlugin(void const* data, size_t length);
 
-		const char* getPluginType() const override;
-		const char* getPluginVersion() const override;
+		void terminate() override;
 		int getNbOutputs() const override;
 		Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
+		size_t getWorkspaceSize(int maxBatchSize) const override;
 	};
 
 

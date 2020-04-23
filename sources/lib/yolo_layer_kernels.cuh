@@ -1,6 +1,7 @@
 ﻿#ifndef _YOLO_LAYER_KERNELS_CUH_
 #define _YOLO_LAYER_KERNELS_CUH_
 
+#include <vector>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
@@ -43,5 +44,21 @@ cudaError_t cuda_upsample_layer(
 	float stride,
 	int c, int h, int w,
 	cudaStream_t stream);
+
+int cuda_decode_layer(
+	const void* input,
+	void** output,
+	int batch_size,
+	float stride,
+	size_t grid_size,
+	size_t num_anchors,
+	size_t num_classes,
+	const std::vector<float>& anchors,
+	float score_thresh,
+	int top_n,
+	void* workspace,
+	size_t workspace_size,
+	cudaStream_t stream
+);
 
 #endif

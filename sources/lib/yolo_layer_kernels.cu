@@ -1,6 +1,44 @@
 ﻿#include <assert.h>
 #include "yolo_layer_kernels.cuh"
 
+#include <stdexcept>
+#include <algorithm>
+#include <cstdint>
+
+#include <thrust/device_ptr.h>
+#include <thrust/sequence.h>
+#include <thrust/execution_policy.h>
+#include <thrust/gather.h>
+#include <thrust/tabulate.h>
+#include <thrust/count.h>
+#include <thrust/find.h>
+#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+#include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
+
+
+#define CUDA_ALIGN 256
+
+template <typename T>
+inline size_t get_size_aligned(size_t num_elem) {
+	size_t size = num_elem * sizeof(T);
+	size_t extra_align = 0;
+	if (size % CUDA_ALIGN != 0) {
+		extra_align = CUDA_ALIGN - size % CUDA_ALIGN;
+	}
+	return size + extra_align;
+}
+
+template <typename T>
+inline T* get_next_ptr(size_t num_elem, void*& workspace, size_t& workspace_size) {
+	size_t size = get_size_aligned<T>(num_elem);
+	if (size > workspace_size) {
+		throw std::runtime_error("Workspace is too small!");
+	}
+	workspace_size -= size;
+	T* ptr = reinterpret_cast<T*>(workspace);
+	workspace = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(workspace) + size);
+	return ptr;
+}
 
 __device__
 inline float d_sigmod(const float& x) {
@@ -103,4 +141,60 @@ cudaError_t cuda_upsample_layer(const void* input, void* output, int batch_size,
 	unsigned int size = w * h * c * batch_size * stride * stride;
 	kernel_upsample << <cuda_gridsize(size), KERNEL_BLOCK, 0, stream >> > (size, (float*)input, w, h, c, batch_size, stride, 1.0, (float*)output);
 	return cudaGetLastError();
+}
+
+int cuda_decode_layer(const void* input, void** output, int batch_size, float stride, 
+	size_t grid_size, size_t num_anchors, size_t num_classes, const std::vector<float>& anchors,
+	float score_thresh, int top_n, void* workspace, size_t workspace_size, cudaStream_t stream)
+{
+	int scores_size = num_anchors * num_classes * grid_size * grid_size;
+	if (!workspace || !workspace_size) {
+		workspace_size = get_size_aligned<float>(anchors.size());  // anchors
+		workspace_size += get_size_aligned<bool>(scores_size);   //flags
+		workspace_size += get_size_aligned<int>(scores_size);   // indices
+		workspace_size += get_size_aligned<int>(scores_size);   // indices_sorted
+		workspace_size += get_size_aligned<float>(scores_size);  //socres
+		workspace_size += get_size_aligned<float>(scores_size); // socrs_sorted
+
+		// 获取这两步操作需要用到的临时空间
+		size_t temp_size_flag = 0;
+		thrust::cuda_cub::cub::DeviceSelect::Flagged(
+			(void*)nullptr, 
+			temp_size_flag,  // temp_storage_bytes
+			thrust::cuda_cub::cub::CountingInputIterator<int>(scores_size),  // InputIteratorT 
+			(bool*)nullptr,  // FlagIterator 
+			(int*)nullptr,   // OutputIteratorT
+			(int*)nullptr,  // NumSelectedIteratorT 
+			scores_size);  // num_items
+
+		size_t temp_size_sort = 0;
+		thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
+			(void*)nullptr, 
+			temp_size_sort,
+			(float*)nullptr, 
+			(float*)nullptr, 
+			(int*)nullptr, 
+			(int*)nullptr, 
+			scores_size);
+
+		workspace_size += std::max(temp_size_flag, temp_size_sort);
+		return workspace_size;
+	}
+
+	auto anchors_d = get_next_ptr<float>(anchors.size(), workspace, workspace_size);
+	cudaMemcpyAsync(anchors_d, anchors.data(), anchors.size() * sizeof(float), cudaMemcpyHostToDevice, stream);
+
+	auto on_stream = thrust::cuda::par.on(stream);
+
+	auto flags = get_next_ptr<bool>(scores_size, workspace, workspace_size);
+	auto indices = get_next_ptr<int>(scores_size, workspace, workspace_size);
+	auto indices_sorted = get_next_ptr<int>(scores_size, workspace, workspace_size);
+	auto scores = get_next_ptr<float>(scores_size, workspace, workspace_size);
+	auto scores = get_next_ptr<float>(scores_size, workspace, workspace_size);
+
+	for (int batch = 0; batch < batch_size; ++batch) {
+		auto p = static_cast<const float*>(input) + batch * (grid_size * grid_size * (num_anchors * (5 + num_classes)));
+		auto in_socres = static_cast<const float*>(input) + batch * scores_size;
+	}
+	return cudaError_t();
 }

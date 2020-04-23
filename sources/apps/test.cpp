@@ -173,7 +173,7 @@ cv::Mat prepare_image(cv::Mat& src, int input_w, int input_h) {
 	cv::copyMakeBorder(marked_image, marked_image, y_offset, y_offset, x_offset,
 		x_offset, cv::BORDER_CONSTANT, cv::Scalar(128, 128, 128));
 	// converting to RGB
-	cv::cvtColor(marked_image, marked_image, CV_BGR2RGB);
+	cv::cvtColor(marked_image, marked_image, cv::COLOR_BGR2RGB);
 
 	return marked_image;
 }
@@ -290,7 +290,7 @@ void test_yolov3_infer()
 
 	std::vector<cv::Mat> frames;
 
-	cv::Mat frame = cv::imread("eagle.jpg", CV_LOAD_IMAGE_COLOR);
+	cv::Mat frame = cv::imread("eagle.jpg");
 	//cv::imshow("frame", frame);
 	//cv::waitKey(0);
 

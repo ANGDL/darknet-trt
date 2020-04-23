@@ -244,7 +244,7 @@ void darknet::DecodePlugin::deserialize(void const* data, size_t length)
 	read(d, num_classes);
 }
 
-void darknet::DecodePlugin::serialize(void* buffer) const
+void darknet::DecodePlugin::serialize(void* buffer)
 {
 	char* d = static_cast<char*> (buffer);
 	write(d, score_thresh);
@@ -260,11 +260,31 @@ void darknet::DecodePlugin::serialize(void* buffer) const
 	write(d, num_classes);
 }
 
-size_t darknet::DecodePlugin::getSerializationSize() const
+size_t darknet::DecodePlugin::getSerializationSize()
 {
 	return sizeof(score_thresh) + sizeof(top_n) + sizeof(size_t) +
 		sizeof(float) * anchors.size() + sizeof(stride) + sizeof(grid_size) +
 		sizeof(num_anchors) + sizeof(num_classes);
+}
+
+int darknet::DecodePlugin::initialize()
+{
+	return 0;
+}
+
+int darknet::DecodePlugin::enqueue(int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
+{
+	return 0;
+}
+
+void darknet::DecodePlugin::configure(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, int maxBatchSize)
+{
+	assert(nbInputs == 1);
+	assert(nbOutputs == 3);
+	assert(inputDims != nullptr && inputDims[0].nbDims == 3);
+	assert(num_anchors*(5+num_classes) == inputDims[0].d[0]);
+	assert(grid_size == inputDims[0].d[1]);
+	assert(grid_size == inputDims[0].d[2]);
 }
 
 darknet::DecodePlugin::DecodePlugin(float score_thresh, int top_n, std::vector<float>const& anchors,
@@ -278,4 +298,26 @@ darknet::DecodePlugin::DecodePlugin(float score_thresh, int top_n, std::vector<f
 darknet::DecodePlugin::DecodePlugin(void const* data, size_t length)
 {
 	this->deserialize(data, length);
+}
+
+void darknet::DecodePlugin::terminate()
+{
+}
+
+int darknet::DecodePlugin::getNbOutputs() const
+{
+	return 3;
+}
+
+nvinfer1::Dims darknet::DecodePlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
+{
+	assert(nbInputDims == 1);
+	assert(index < this->getNbOutputs());
+	return Dims3(top_n*(index == 1 ? 4 : 1), 1, 1);
+}
+
+size_t darknet::DecodePlugin::getWorkspaceSize(int maxBatchSize) const
+{
+
+	return 0;
 }
