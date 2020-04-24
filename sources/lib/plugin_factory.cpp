@@ -117,6 +117,11 @@ nvinfer1::IPlugin* darknet::PluginFactory::createPlugin(const char* layerName, c
 		upsample_layers.push_back(std::move(upsample));
 		return upsample_layers.back().get();
 	}
+	else if (std::string(layerName).find("decode") != std::string::npos) {
+		unique_ptr_iplugin decode_layer = unique_ptr_iplugin(new DecodePlugin(serialData, serialLength));
+		decode_layers.push_back(decode_layer);
+		return decode_layers.back().get();
+	}
 	else {
 		std::cerr << "ERROR: Unrecognised layer : " << layerName << std::endl;
 		assert(0);
@@ -274,7 +279,21 @@ int darknet::DecodePlugin::initialize()
 
 int darknet::DecodePlugin::enqueue(int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
 {
-	return 0;
+	return cuda_decode_layer(
+		inputs[0],
+		outputs,
+		batchSize,
+		stride,
+		grid_size,
+		num_anchors,
+		num_classes,
+		anchors,
+		score_thresh,
+		top_n,
+		workspace,
+		this->getWorkspaceSize(batchSize),
+		stream
+	);
 }
 
 void darknet::DecodePlugin::configure(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, int maxBatchSize)
@@ -282,7 +301,7 @@ void darknet::DecodePlugin::configure(const Dims* inputDims, int nbInputs, const
 	assert(nbInputs == 1);
 	assert(nbOutputs == 3);
 	assert(inputDims != nullptr && inputDims[0].nbDims == 3);
-	assert(num_anchors*(5+num_classes) == inputDims[0].d[0]);
+	assert(num_anchors * (5 + num_classes) == inputDims[0].d[0]);
 	assert(grid_size == inputDims[0].d[1]);
 	assert(grid_size == inputDims[0].d[2]);
 }
@@ -313,11 +332,24 @@ nvinfer1::Dims darknet::DecodePlugin::getOutputDimensions(int index, const Dims*
 {
 	assert(nbInputDims == 1);
 	assert(index < this->getNbOutputs());
-	return Dims3(top_n*(index == 1 ? 4 : 1), 1, 1);
+	return Dims3(top_n * (index == 1 ? 4 : 1), 1, 1);
 }
 
 size_t darknet::DecodePlugin::getWorkspaceSize(int maxBatchSize) const
 {
-
-	return 0;
+	return cuda_decode_layer(
+		nullptr,
+		nullptr,
+		maxBatchSize,
+		stride,
+		grid_size,
+		num_anchors,
+		num_classes,
+		anchors,
+		score_thresh,
+		top_n,
+		nullptr,
+		0,
+		nullptr
+	);
 }

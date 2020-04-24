@@ -317,7 +317,14 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 			//print
 			print_layer_info(i, yolo_layer->getName(), previous->getDimensions(), yolo_layer->getOutput(0)->getDimensions(), weight_ptr);
 
-			network->markOutput(*yolo_output);
+			// 添加decode layer
+			std::vector<float> anchors;
+			if (grid_size == config->GRID_SIZE_1)
+			{
+			}
+			nvinfer1::IPlugin* decode_layer = new DecodePlugin(0.5, 5, config->)
+
+				network->markOutput(*yolo_output);
 			yolo_tensors.push_back(yolo_output);
 			output_tensors.push_back(yolo_output);
 
