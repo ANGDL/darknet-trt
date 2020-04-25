@@ -317,14 +317,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 			//print
 			print_layer_info(i, yolo_layer->getName(), previous->getDimensions(), yolo_layer->getOutput(0)->getDimensions(), weight_ptr);
 
-			// 添加decode layer
-			std::vector<float> anchors;
-			if (grid_size == config->GRID_SIZE_1)
-			{
-			}
-			nvinfer1::IPlugin* decode_layer = new DecodePlugin(0.5, 5, config->)
-
-				network->markOutput(*yolo_output);
+			network->markOutput(*yolo_output);
 			yolo_tensors.push_back(yolo_output);
 			output_tensors.push_back(yolo_output);
 
@@ -376,6 +369,119 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 		}
 
 	}
+
+	// 添加decode plugin
+	for (size_t i = 0; i < yolo_tensors.size(); i++)
+	{
+		network->unmarkOutput(*yolo_tensors[i]);
+	}
+
+	std::vector<ILayer*> decode_layers;
+	std::vector<float> anchors;
+
+	if (config->get_network_type == "yolov3-tiny") {
+		auto cfg = dynamic_cast<YoloV3TinyCfg*>(config.get());
+		// yolo_layer_1
+		for (size_t i = 0; i < cfg->get_bboxes(); i++){
+			anchors.push_back(cfg->MASK_1[i] * 2);
+			anchors.push_back(cfg->MASK_1[i] * 2 + 1);
+		}
+		nvinfer1::ILayer* decode_layer_1 = add_decode(
+			yolo_tensors[0], network.get(), "decode_1",
+			0.5, 5, anchors,
+			cfg->STRIDE_1,
+			cfg->GRID_SIZE_1,
+			cfg->get_bboxes(),
+			cfg->OUTPUT_CLASSES
+		);
+
+		anchors.clear();
+
+		for (size_t i = 0; i < cfg->get_bboxes(); i++) {
+			anchors.push_back(cfg->MASK_2[i] * 2);
+			anchors.push_back(cfg->MASK_2[i] * 2 + 1);
+		}
+		nvinfer1::ILayer* decode_layer_2 = add_decode(
+			yolo_tensors[1], network.get(), "decode_2",
+			0.5, 5, anchors,
+			cfg->STRIDE_2,
+			cfg->GRID_SIZE_2,
+			cfg->get_bboxes(),
+			cfg->OUTPUT_CLASSES
+		);
+
+		decode_layers.push_back(decode_layer_1);
+		decode_layers.push_back(decode_layer_2);
+	}
+	else if(config->get_network_type == "yolov3-tiny") {
+		auto cfg = dynamic_cast<YoloV3Cfg*>(config.get());
+		// yolo_layer_1
+		for (size_t i = 0; i < cfg->get_bboxes(); i++) {
+			anchors.push_back(cfg->MASK_1[i] * 2);
+			anchors.push_back(cfg->MASK_1[i] * 2 + 1);
+		}
+		nvinfer1::ILayer* decode_layer_1 = add_decode(
+			yolo_tensors[0], network.get(), "decode_1",
+			0.5, 5, anchors,
+			cfg->STRIDE_1,
+			cfg->GRID_SIZE_1,
+			cfg->get_bboxes(),
+			cfg->OUTPUT_CLASSES
+		);
+
+		anchors.clear();
+
+		for (size_t i = 0; i < cfg->get_bboxes(); i++) {
+			anchors.push_back(cfg->MASK_2[i] * 2);
+			anchors.push_back(cfg->MASK_2[i] * 2 + 1);
+		}
+		nvinfer1::ILayer* decode_layer_2 = add_decode(
+			yolo_tensors[1], network.get(), "decode_2",
+			0.5, 5, anchors,
+			cfg->STRIDE_2,
+			cfg->GRID_SIZE_2,
+			cfg->get_bboxes(),
+			cfg->OUTPUT_CLASSES
+		);
+
+		anchors.clear();
+
+		for (size_t i = 0; i < cfg->get_bboxes(); i++) {
+			anchors.push_back(cfg->MASK_3[i] * 2);
+			anchors.push_back(cfg->MASK_3[i] * 2 + 1);
+		}
+		nvinfer1::ILayer* decode_layer_3 = add_decode(
+			yolo_tensors[2], network.get(), "decode_3",
+			0.5, 5, anchors,
+			cfg->STRIDE_3,
+			cfg->GRID_SIZE_3,
+			cfg->get_bboxes(),
+			cfg->OUTPUT_CLASSES
+		);
+
+		decode_layers.push_back(decode_layer_1);
+		decode_layers.push_back(decode_layer_2);
+		decode_layers.push_back(decode_layer_3);
+	}
+
+	// concat deocode output tensors
+	// scores, boxes, classes
+	std::vector<nvinfer1::ITensor*> scores, boxes, classes;
+	for (auto l : decode_layers) {
+		scores.push_back(l->getOutput(0));
+		boxes.push_back(l->getOutput(1));
+		classes.push_back(l->getOutput(2));
+	}
+
+	std::vector<nvinfer1::ITensor*> concat;
+	for (auto tensor : {scores, boxes, classes})
+	{
+		auto layer = network->addConcatenation(tensor.data(), tensor.size());
+		concat.push_back(layer->getOutput(0));
+	}
+	// add nms plugin
+	// TODO
+
 
 	if (weights.size() != weight_ptr)
 	{
@@ -646,3 +752,17 @@ nvinfer1::IPluginLayer* darknet::Yolo::add_leakyRelu(int layer_idx, nvinfer1::IT
 	leaky->setName(layer_name.c_str());
 	return leaky;
 }
+
+nvinfer1::IPluginLayer* darknet::Yolo::add_decode(nvinfer1::ITensor* input, nvinfer1::INetworkDefinition* network, std::string name, float score_thresh, int top_n, const std::vector<float> anchors, int stride, int gride_size, int num_anchors, int num_classes)
+{
+	IPlugin* decode = new DecodePlugin(score_thresh, top_n, anchors, stride, gride_size, num_anchors, num_classes);
+	nvinfer1::IPluginLayer* decode_layer = network->addPlugin(&input, 1, *decode);
+	if (nullptr == decode_layer) {
+		return nullptr;
+	}
+
+	decode_layer->setName(name.c_str());
+	return decode_layer;
+}
+
+

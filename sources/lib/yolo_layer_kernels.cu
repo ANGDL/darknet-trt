@@ -241,7 +241,7 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 			stream
 		);
 
-		assert(num_partition_selected == scores_size);
+		assert(*num_partition_selected == scores_size);
 
 		thrust::transform(
 			on_stream,
@@ -263,7 +263,7 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 			stream
 		);
 
-		assert(num_partition_selected == boxes_size);
+		assert(*num_partition_selected == boxes_size);
 
 		cudaStreamSynchronize(stream);
 
