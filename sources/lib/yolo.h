@@ -1,11 +1,14 @@
 ﻿#ifndef _YOLO_H_
 #define  _YOLO_H_
 
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <set>
 #include <memory>
 #include "darknet_cfg.h"
 #include "NvInfer.h"
 #include "plugin_factory.h"
+
 
 namespace darknet {
 	class Logger : public nvinfer1::ILogger

@@ -42,6 +42,21 @@
     <ClInclude Include="sources\lib\yolov3.h">
       <Filter>yolo</Filter>
     </ClInclude>
+    <ClInclude Include="sources\lib\upsample_kernel.cuh">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\decode_kernel.cuh">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\yolo_layer_plugin.h">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\upsample_plugin.h">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\decode_plugin.h">
+      <Filter>yolo</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sources\lib\darknet_cfg.cpp">
@@ -65,9 +80,24 @@
     <ClCompile Include="sources\lib\yolov3.cpp">
       <Filter>yolo</Filter>
     </ClCompile>
+    <ClCompile Include="sources\lib\yolo_layer_plugin.cpp">
+      <Filter>yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="sources\lib\upsample_plugin.cpp">
+      <Filter>yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="sources\lib\decode_plugin.cpp">
+      <Filter>yolo</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="sources\lib\yolo_layer_kernels.cu">
+      <Filter>yolo</Filter>
+    </CudaCompile>
+    <CudaCompile Include="sources\lib\upsample_kernel.cu">
+      <Filter>yolo</Filter>
+    </CudaCompile>
+    <CudaCompile Include="sources\lib\decode_kernel.cu">
       <Filter>yolo</Filter>
     </CudaCompile>
   </ItemGroup>

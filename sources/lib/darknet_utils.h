@@ -75,4 +75,19 @@ float clamp(const float val, const float minVal, const float maxVal);
 
 float clamp(const float val, const float minVal);
 
+
+namespace darknet {
+	template<typename T>
+	void write(char*& buffer, const T& val) {
+		*reinterpret_cast<T*>(buffer) = val;
+		buffer += sizeof(T);
+	}
+
+	template <typename T>
+	void read(const char*& buffer, T& val) {
+		val = *reinterpret_cast<const T*>(buffer);
+		buffer += sizeof(T);
+	}
+}
+
 #endif

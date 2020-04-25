@@ -13,31 +13,45 @@
   <ItemGroup>
     <ClInclude Include="sources\lib\darknet_cfg.h" />
     <ClInclude Include="sources\lib\darknet_utils.h" />
+    <ClInclude Include="sources\lib\decode_kernel.cuh" />
+    <ClInclude Include="sources\lib\decode_plugin.h" />
+    <ClInclude Include="sources\lib\upsample_kernel.cuh" />
+    <ClInclude Include="sources\lib\upsample_plugin.h" />
     <ClInclude Include="sources\lib\yolo.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="sources\lib\yolov3-tiny.h" />
     <ClInclude Include="sources\lib\yolov3.h" />
-    <ClInclude Include="sources\lib\yolo_layer_kernels.cuh" />
+    <ClInclude Include="sources\lib\yolo_layer_kernels.cuh">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="sources\lib\plugin_factory.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="sources\lib\yolo_layer_plugin.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sources\apps\test.cpp" />
     <ClCompile Include="sources\lib\darknet_cfg.cpp" />
     <ClCompile Include="sources\lib\darknet_utils.cpp" />
+    <ClCompile Include="sources\lib\decode_plugin.cpp" />
     <ClCompile Include="sources\lib\plugin_factory.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="sources\lib\upsample_plugin.cpp" />
     <ClCompile Include="sources\lib\yolo.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="sources\lib\yolov3-tiny.cpp" />
     <ClCompile Include="sources\lib\yolov3.cpp" />
+    <ClCompile Include="sources\lib\yolo_layer_plugin.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="sources\lib\yolo_layer_kernels.cu" />
+    <CudaCompile Include="sources\lib\decode_kernel.cu" />
+    <CudaCompile Include="sources\lib\upsample_kernel.cu" />
+    <CudaCompile Include="sources\lib\yolo_layer_kernels.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </CudaCompile>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{8AF8709F-C3EB-44F1-BB99-F71287B7DC15}</ProjectGuid>
@@ -91,7 +105,9 @@
       <NvccCompilation>compile</NvccCompilation>
       <CudaRuntime>Static</CudaRuntime>
       <CodeGeneration>compute_75,sm_75</CodeGeneration>
+      <AdditionalOptions>--expt-extended-lambda %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
+    <CudaLink />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -102,6 +118,7 @@
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>%OpenCV%\include;%TRT%\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -113,6 +130,9 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
     </CudaCompile>
+    <CudaLink>
+      <AdditionalOptions>--expt-extended-lambda %(AdditionalOptions)</AdditionalOptions>
+    </CudaLink>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

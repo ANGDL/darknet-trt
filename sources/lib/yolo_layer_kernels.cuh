@@ -9,22 +9,6 @@
 
 #define KERNEL_BLOCK 512
 
-// cuda_gridsize 
-// reference: https://github.com/pjreddie/darknet/blob/master/src/cuda.h
-static
-dim3 cuda_gridsize(unsigned int n) {
-	unsigned int k = (n - 1) / KERNEL_BLOCK + 1;
-	unsigned int x = k;
-	unsigned int y = 1;
-	if (x > 65535) {
-		x = static_cast<unsigned int>(ceil(sqrt(k)));
-		y = (n - 1) / (x * KERNEL_BLOCK) + 1;
-	}
-	dim3 d = { x, y, 1 };
-	//printf("%ld %ld %ld %ld\n", n, x, y, x*y*KERNEL_BLOCK);
-	return d;
-}
-
 
 cudaError_t cuda_yolo_layer(
 	const void* input,
@@ -34,30 +18,6 @@ cudaError_t cuda_yolo_layer(
 	unsigned int num_classes,
 	unsigned int num_boxes,
 	unsigned int output_size,
-	cudaStream_t stream
-);
-
-cudaError_t cuda_upsample_layer(
-	const void* input,
-	void* output,
-	int batch_size,
-	float stride,
-	int c, int h, int w,
-	cudaStream_t stream);
-
-int cuda_decode_layer(
-	const void* input,
-	void** output,
-	int batch_size,
-	float stride,
-	size_t grid_size,
-	size_t num_anchors,
-	size_t num_classes,
-	const std::vector<float>& anchors,
-	float score_thresh,
-	int top_n,
-	void* workspace,
-	size_t workspace_size,
 	cudaStream_t stream
 );
 

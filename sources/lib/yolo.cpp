@@ -379,7 +379,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 	std::vector<ILayer*> decode_layers;
 	std::vector<float> anchors;
 
-	if (config->get_network_type == "yolov3-tiny") {
+	if (config->get_network_type() == "yolov3-tiny") {
 		auto cfg = dynamic_cast<YoloV3TinyCfg*>(config.get());
 		// yolo_layer_1
 		for (size_t i = 0; i < cfg->get_bboxes(); i++){
@@ -413,7 +413,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 		decode_layers.push_back(decode_layer_1);
 		decode_layers.push_back(decode_layer_2);
 	}
-	else if(config->get_network_type == "yolov3-tiny") {
+	else if(config->get_network_type() == "yolov3") {
 		auto cfg = dynamic_cast<YoloV3Cfg*>(config.get());
 		// yolo_layer_1
 		for (size_t i = 0; i < cfg->get_bboxes(); i++) {
