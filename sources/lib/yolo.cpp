@@ -480,8 +480,18 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 		concat.push_back(layer->getOutput(0));
 	}
 	// add nms plugin
-	// TODO
-
+	auto nms_plugin = new NmsPlugin(0, 5, 100);
+	if (nullptr == nms_plugin) {
+		std::cout << "add nms_plugin" << " layer error " << __func__ << ": " << __LINE__ << std::endl;
+		return false;
+	}
+	auto nms_layer = network->addPlugin(concat.data(), concat.size(), *nms_plugin);
+	vector<string> names = { "scores", "boxes", "classes" };
+	for (int i = 0; i < nms_layer->getNbOutputs(); i++) {
+		auto output = nms_layer->getOutput(i);
+		network->markOutput(*output);
+		output->setName(names[i].c_str());
+	}
 
 	if (weights.size() != weight_ptr)
 	{

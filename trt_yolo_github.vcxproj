@@ -15,6 +15,8 @@
     <ClInclude Include="sources\lib\darknet_utils.h" />
     <ClInclude Include="sources\lib\decode_kernel.cuh" />
     <ClInclude Include="sources\lib\decode_plugin.h" />
+    <ClInclude Include="sources\lib\nms_kernel.cuh" />
+    <ClInclude Include="sources\lib\nms_plugin.h" />
     <ClInclude Include="sources\lib\upsample_kernel.cuh" />
     <ClInclude Include="sources\lib\upsample_plugin.h" />
     <ClInclude Include="sources\lib\yolo.h">
@@ -35,6 +37,7 @@
     <ClCompile Include="sources\lib\darknet_cfg.cpp" />
     <ClCompile Include="sources\lib\darknet_utils.cpp" />
     <ClCompile Include="sources\lib\decode_plugin.cpp" />
+    <ClCompile Include="sources\lib\nms_plugin.cpp" />
     <ClCompile Include="sources\lib\plugin_factory.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
@@ -48,6 +51,7 @@
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="sources\lib\decode_kernel.cu" />
+    <CudaCompile Include="sources\lib\nms_kernel.cu" />
     <CudaCompile Include="sources\lib\upsample_kernel.cu" />
     <CudaCompile Include="sources\lib\yolo_layer_kernels.cu">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>

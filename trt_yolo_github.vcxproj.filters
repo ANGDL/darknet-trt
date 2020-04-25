@@ -19,6 +19,12 @@
     <Filter Include="app">
       <UniqueIdentifier>{a584e041-20e8-49c6-a8dd-0684eb272baf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="cuda">
+      <UniqueIdentifier>{6bdb999b-cc11-4013-993c-7d90609f0bc3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="plugin">
+      <UniqueIdentifier>{6440150f-c743-40ff-aa51-85044954cd24}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sources\lib\darknet_cfg.h">
@@ -30,32 +36,38 @@
     <ClInclude Include="sources\lib\yolo.h">
       <Filter>yolo</Filter>
     </ClInclude>
-    <ClInclude Include="sources\lib\yolo_layer_kernels.cuh">
-      <Filter>yolo</Filter>
-    </ClInclude>
-    <ClInclude Include="sources\lib\plugin_factory.h">
-      <Filter>yolo</Filter>
-    </ClInclude>
     <ClInclude Include="sources\lib\yolov3-tiny.h">
       <Filter>yolo</Filter>
     </ClInclude>
     <ClInclude Include="sources\lib\yolov3.h">
       <Filter>yolo</Filter>
     </ClInclude>
-    <ClInclude Include="sources\lib\upsample_kernel.cuh">
-      <Filter>yolo</Filter>
-    </ClInclude>
     <ClInclude Include="sources\lib\decode_kernel.cuh">
-      <Filter>yolo</Filter>
+      <Filter>cuda</Filter>
     </ClInclude>
-    <ClInclude Include="sources\lib\yolo_layer_plugin.h">
-      <Filter>yolo</Filter>
+    <ClInclude Include="sources\lib\upsample_kernel.cuh">
+      <Filter>cuda</Filter>
     </ClInclude>
-    <ClInclude Include="sources\lib\upsample_plugin.h">
-      <Filter>yolo</Filter>
+    <ClInclude Include="sources\lib\yolo_layer_kernels.cuh">
+      <Filter>cuda</Filter>
     </ClInclude>
     <ClInclude Include="sources\lib\decode_plugin.h">
-      <Filter>yolo</Filter>
+      <Filter>plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\plugin_factory.h">
+      <Filter>plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\upsample_plugin.h">
+      <Filter>plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\yolo_layer_plugin.h">
+      <Filter>plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\nms_plugin.h">
+      <Filter>plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\nms_kernel.cuh">
+      <Filter>cuda</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -68,9 +80,6 @@
     <ClCompile Include="sources\apps\test.cpp">
       <Filter>app</Filter>
     </ClCompile>
-    <ClCompile Include="sources\lib\plugin_factory.cpp">
-      <Filter>yolo</Filter>
-    </ClCompile>
     <ClCompile Include="sources\lib\yolo.cpp">
       <Filter>yolo</Filter>
     </ClCompile>
@@ -80,25 +89,34 @@
     <ClCompile Include="sources\lib\yolov3.cpp">
       <Filter>yolo</Filter>
     </ClCompile>
-    <ClCompile Include="sources\lib\yolo_layer_plugin.cpp">
-      <Filter>yolo</Filter>
+    <ClCompile Include="sources\lib\decode_plugin.cpp">
+      <Filter>plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="sources\lib\plugin_factory.cpp">
+      <Filter>plugin</Filter>
     </ClCompile>
     <ClCompile Include="sources\lib\upsample_plugin.cpp">
-      <Filter>yolo</Filter>
+      <Filter>plugin</Filter>
     </ClCompile>
-    <ClCompile Include="sources\lib\decode_plugin.cpp">
-      <Filter>yolo</Filter>
+    <ClCompile Include="sources\lib\yolo_layer_plugin.cpp">
+      <Filter>plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="sources\lib\nms_plugin.cpp">
+      <Filter>plugin</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="sources\lib\yolo_layer_kernels.cu">
-      <Filter>yolo</Filter>
+    <CudaCompile Include="sources\lib\decode_kernel.cu">
+      <Filter>cuda</Filter>
     </CudaCompile>
     <CudaCompile Include="sources\lib\upsample_kernel.cu">
-      <Filter>yolo</Filter>
+      <Filter>cuda</Filter>
     </CudaCompile>
-    <CudaCompile Include="sources\lib\decode_kernel.cu">
-      <Filter>yolo</Filter>
+    <CudaCompile Include="sources\lib\yolo_layer_kernels.cu">
+      <Filter>cuda</Filter>
+    </CudaCompile>
+    <CudaCompile Include="sources\lib\nms_kernel.cu">
+      <Filter>cuda</Filter>
     </CudaCompile>
   </ItemGroup>
 </Project>

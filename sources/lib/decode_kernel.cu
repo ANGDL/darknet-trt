@@ -12,36 +12,7 @@
 #include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
 #include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
 
-
-#define CUDA_ALIGN 256
-
-#ifndef max
-#define max(a,b) (((a) > (b)) ? (a) : (b))
-#endif
-
-template <typename T>
-inline size_t get_size_aligned(size_t num_elem) {
-	size_t size = num_elem * sizeof(T);
-	size_t extra_align = 0;
-	if (size % CUDA_ALIGN != 0) {
-		extra_align = CUDA_ALIGN - size % CUDA_ALIGN;
-	}
-	return size + extra_align;
-}
-
-template <typename T>
-inline T* get_next_ptr(size_t num_elem, void*& workspace, size_t& workspace_size) {
-	size_t size = get_size_aligned<T>(num_elem);
-	if (size > workspace_size) {
-		throw std::runtime_error("Workspace is too small!");
-	}
-	workspace_size -= size;
-	T* ptr = reinterpret_cast<T*>(workspace);
-	workspace = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(workspace) + size);
-	return ptr;
-}
-
-
+#include "darknet_utils.h"
 
 
 int cuda_decode_layer(const void* input, void** output, int batch_size, float stride,
@@ -245,16 +216,16 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 				in_boxes[grid_idx + num_girds * (a * 4 + 3)]
 			};
 
-			float pred_x = x + box.x;
-			float pred_y = y + box.y;
-			float pred_w = pw * box.z;
-			float pred_h = ph * box.w;
+			float bx = x + box.x;
+			float by = y + box.y;
+			float bw = pw * box.z;
+			float bh = ph * box.w;
 
 			box = float4{
-				max(0.0f, pred_x * stride),
-				max(0.0f, pred_y * stride),
-				max(0.0f, pred_w),
-				max(0.0f, pred_h)
+				max(0.0f,  bx - bw / 2),
+				max(0.0f, by - bh / 2),
+				min(bx + bw / 2, stride * grid_size),
+				min(by + bh / 2,  stride * grid_size)
 			};
 
 			return thrust::make_tuple(in_scores[i], box, cls);

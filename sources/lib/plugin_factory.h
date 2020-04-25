@@ -3,6 +3,7 @@
 #include "yolo_layer_plugin.h"
 #include "upsample_plugin.h"
 #include "decode_plugin.h"
+#include "nms_plugin.h"
 
 namespace darknet {
 	using namespace nvinfer1;
@@ -43,6 +44,7 @@ namespace darknet {
 		std::vector<unique_ptr_iplugin> yolo_layers;
 		std::vector<unique_ptr_iplugin> upsample_layers;
 		std::vector<unique_ptr_iplugin> decode_layers;
+		std::vector<unique_ptr_iplugin> nms_layers;
 	};
 }
 
