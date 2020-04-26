@@ -25,16 +25,6 @@ nvinfer1::IPlugin* darknet::PluginFactory::createPlugin(const char* layerName, c
 		upsample_layers.push_back(std::move(upsample));
 		return upsample_layers.back().get();
 	}
-	else if (std::string(layerName).find("decode") != std::string::npos) {
-		unique_ptr_iplugin decode_layer = unique_ptr_iplugin(new DecodePlugin(serialData, serialLength));
-		decode_layers.push_back(std::move(decode_layer));
-		return decode_layers.back().get();
-	}
-	else if (std::string(layerName).find("nms") != std::string::npos){
-		unique_ptr_iplugin nms_layer = unique_ptr_iplugin(new NmsPlugin(serialData, serialLength));
-		nms_layers.push_back(std::move(nms_layer));
-		return nms_layers.back().get();
-	}
 	else {
 		std::cerr << "ERROR: Unrecognised layer : " << layerName << std::endl;
 		assert(0);

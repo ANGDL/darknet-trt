@@ -5,6 +5,7 @@
 #include "../lib/yolo.h"
 #include "../lib/yolov3-tiny.h"
 #include "../lib/yolov3.h"
+#include "../lib/yolov3-nms.h"
 #include "opencv2/opencv.hpp"
 
 void test_parse_config()
@@ -316,6 +317,66 @@ void test_yolov3_infer()
 	}
 }
 
+
+void test_yolov3_nms()
+{
+	const int batch_size = 1;
+	std::string curr_path{ std::filesystem::current_path().string() };
+	std::string data_file = curr_path + "/config/coco.data";
+	std::string cfg_file = curr_path + "/config/yolov3-tiny.cfg";
+	std::string weights_file = curr_path + "/data/yolov3-tiny.weights";
+	std::string calib_table_file = "";
+	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3-tiny", data_file, cfg_file, weights_file, calib_table_file, "kFLOAT");
+
+	darknet::YoloV3NMS net(cfg, batch_size, 0.5, 0.5);
+
+	uchar* input_buff = (uchar*)malloc(cfg->INPUT_SIZE * sizeof(float));
+	if (input_buff == nullptr)
+	{
+		return;
+	}
+
+	uchar* p = input_buff;
+
+	std::vector<cv::Scalar> color;
+	for (int i = 0; i < cfg->OUTPUT_CLASSES; ++i) color.push_back(randomColor(cv::RNG(244)));
+
+	std::vector<cv::Mat> frames;
+	cv::Mat frame = cv::imread("person.jpg");
+
+	for (int i = 0; i < batch_size; ++i) {
+		frames.push_back(frame.clone());
+	}
+
+	cv::Mat resized;
+	cv::resize(frame, resized, cv::Size(cfg->INPUT_W, cfg->INPUT_H));
+	cv::Mat resized_f;
+	if (resized.depth() != CV_32FC3) {
+		resized.convertTo(resized_f, CV_32FC3, 1.);
+	}
+
+	cv::imwrite("resized_f.jpg", resized);
+	cv::imshow("resized_f", resized);
+	cv::waitKey(0);
+
+	for (int i = 0; i < batch_size; ++i) {
+		memcpy(p, resized_f.data, cfg->INPUT_SIZE * sizeof(float));
+		p += cfg->INPUT_SIZE * sizeof(float);
+	}
+
+	assert(p == input_buff + cfg->INPUT_SIZE * sizeof(float));
+
+	net.infer(input_buff);
+	auto bboxes = net.get_detecions(frame.cols, frame.rows);
+
+	for (int i = 0; i < frames.size(); ++i) {
+		draw_img(bboxes[i], frames[i], color, cfg->CLASS_NAMES);
+	}
+
+	free(input_buff);
+	input_buff = nullptr;
+}
+
 int main()
 {
 	namespace fs = std::filesystem;
@@ -325,6 +386,7 @@ int main()
 	//test_create_yolov3_engine();
 	//test_create_yolov3_tiny_engine();
 	//test_yolov3_tiny_infer();
-	test_yolov3_infer();
+	// test_yolov3_infer();
+	test_yolov3_nms();
 	return 0;
 }

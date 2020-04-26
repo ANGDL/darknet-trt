@@ -1,4 +1,4 @@
-#include "decode_kernel.cuh"
+ï»¿#include "decode_kernel.cuh"
 
 #include <cstdint>
 
@@ -19,9 +19,10 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 	size_t grid_size, size_t num_anchors, size_t num_classes, const std::vector<float>& anchors,
 	float score_thresh, int top_n, void* workspace, size_t workspace_size, cudaStream_t stream)
 {
-	int scores_size = num_anchors * num_classes * grid_size * grid_size;
-	int boxes_size = num_anchors * 4 * grid_size * grid_size;
-	int pred_size = num_anchors * (5 + num_classes) * grid_size * grid_size;
+	size_t obj_scores_size = num_anchors * grid_size * grid_size;
+	size_t scores_size = num_anchors * num_classes * grid_size * grid_size;
+	size_t boxes_size = num_anchors * 4 * grid_size * grid_size;
+	size_t pred_size = num_anchors * (5 + num_classes) * grid_size * grid_size;
 
 	if (!workspace || !workspace_size) {
 		workspace_size = get_size_aligned<int>(pred_size); //  partition flags
@@ -35,7 +36,7 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 		workspace_size += get_size_aligned<float>(scores_size); // socrs_sorted
 
 
-		// »ñÈ¡ÕâÁ½²½²Ù×÷ĞèÒªÓÃµ½µÄÁÙÊ±¿Õ¼ä
+		// è·å–è¿™ä¸¤æ­¥æ“ä½œéœ€è¦ç”¨åˆ°çš„ä¸´æ—¶ç©ºé—´
 		size_t temp_size_flag = 0;
 		thrust::cuda_cub::cub::DeviceSelect::Flagged(
 			(void*)nullptr,
@@ -79,13 +80,12 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 
 	for (int batch = 0; batch < batch_size; ++batch) {
 		auto p = static_cast<const float*>(input) + batch * pred_size;
-		auto in_socres = p + 5;
 
 		auto out_scores = static_cast<float*>(output[0]) + batch * top_n;
 		auto out_boxes = static_cast<float4*>(output[1]) + batch * top_n;
 		auto out_classes = static_cast<float*>(output[2]) + batch * top_n;
 
-		// ·ÖÀëconfidence soces ºÍ bboxes
+		// åˆ†ç¦»confidence soces å’Œ bboxes
 		auto index_iter = thrust::cuda_cub::cub::CountingInputIterator<int>(0);
 		thrust::transform(
 			on_stream,
@@ -109,14 +109,12 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 			stream
 		);
 
-		assert(*num_partition_selected == scores_size);
-
 		thrust::transform(
 			on_stream,
 			index_iter,
 			index_iter + pred_size,
 			partition_flags,
-			thrust::placeholders::_1 % pred_size < 5
+			thrust::placeholders::_1 % pred_size < 4
 		);
 
 		float* in_boxes = reinterpret_cast<float*>(boxes);
@@ -131,11 +129,9 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 			stream
 		);
 
-		assert(*num_partition_selected == boxes_size);
-
 		cudaStreamSynchronize(stream);
 
-		// Ê¹ÓÃãĞÖµ¹ıÂËscores
+		// ä½¿ç”¨é˜ˆå€¼è¿‡æ»¤scores
 		thrust::transform(
 			on_stream,
 			in_scores,
@@ -143,7 +139,6 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 			flags,
 			thrust::placeholders::_1 > score_thresh
 		);
-
 
 		int* num_selected = reinterpret_cast<int*>(indices_sorted);
 		thrust::cuda_cub::cub::DeviceSelect::Flagged(
@@ -188,7 +183,7 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 			num_detections = top_n;
 		}
 
-		// ÊÕ¼¯boxes
+		// æ”¶é›†boxes
 
 		thrust::transform(
 			on_stream,

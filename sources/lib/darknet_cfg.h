@@ -49,6 +49,10 @@ namespace darknet {
 
 		const string WEIGHTS_FLIE;
 		const string CALIB_FILE;
+
+		float nms_thresh = 0.5;
+		float score_thresh = 0.5;
+		int max_detection = 100;
 	};
 
 	class YoloV3TinyCfg : public NetConfig
