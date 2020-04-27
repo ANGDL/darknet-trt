@@ -327,7 +327,7 @@ void test_yolov3_nms()
 	std::string weights_file = curr_path + "/data/yolov3-tiny.weights";
 	std::string calib_table_file = "";
 	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3-tiny", data_file, cfg_file, weights_file, calib_table_file, "kFLOAT");
-
+	cfg->score_thresh = 1.0;
 	darknet::YoloV3NMS net(cfg, batch_size, 0.5, 0.5);
 
 	uchar* input_buff = (uchar*)malloc(cfg->INPUT_SIZE * sizeof(float));

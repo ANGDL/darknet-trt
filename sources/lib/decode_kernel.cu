@@ -1,7 +1,7 @@
 ﻿#include "decode_kernel.cuh"
 
 #include <cstdint>
-
+#include <thrust/host_vector.h>
 #include <thrust/device_ptr.h>
 #include <thrust/sequence.h>
 #include <thrust/execution_policy.h>
@@ -15,17 +15,17 @@
 #include "darknet_utils.h"
 
 
-int cuda_decode_layer(const void* input, void** output, int batch_size, float stride,
+int cuda_decode_layer(const void* const* inputs, void** output, int batch_size, float stride,
 	size_t grid_size, size_t num_anchors, size_t num_classes, const std::vector<float>& anchors,
 	float score_thresh, int top_n, void* workspace, size_t workspace_size, cudaStream_t stream)
 {
-	size_t obj_scores_size = num_anchors * grid_size * grid_size;
+
 	size_t scores_size = num_anchors * num_classes * grid_size * grid_size;
 	size_t boxes_size = num_anchors * 4 * grid_size * grid_size;
 	size_t pred_size = num_anchors * (5 + num_classes) * grid_size * grid_size;
 
 	if (!workspace || !workspace_size) {
-		workspace_size = get_size_aligned<int>(pred_size); //  partition flags
+		workspace_size = get_size_aligned<bool>(pred_size); //  partition flags
 		workspace_size += get_size_aligned<float>(scores_size);  //socres
 		workspace_size += get_size_aligned<float>(boxes_size);  //boxes
 		workspace_size += get_size_aligned<float>(anchors.size());  // anchors
@@ -66,7 +66,7 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 
 	auto on_stream = thrust::cuda::par.on(stream);
 
-	auto partition_flags = get_next_ptr<float>(pred_size, workspace, workspace_size);
+	auto partition_flags = get_next_ptr<bool>(pred_size, workspace, workspace_size);
 
 	auto scores = get_next_ptr<float>(scores_size, workspace, workspace_size);
 	auto boxes = get_next_ptr<float>(boxes_size, workspace, workspace_size);
@@ -79,7 +79,12 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 
 
 	for (int batch = 0; batch < batch_size; ++batch) {
-		auto p = static_cast<const float*>(input) + batch * pred_size;
+		auto detections = static_cast<const float*>(inputs[0]) + batch * pred_size;
+
+		for (int i = 0; i < pred_size; ++i) {
+			printf("%f ", *(thrust::device_pointer_cast(((float*)detections + i))));
+		}
+		printf("\n");
 
 		auto out_scores = static_cast<float*>(output[0]) + batch * top_n;
 		auto out_boxes = static_cast<float4*>(output[1]) + batch * top_n;
@@ -92,7 +97,7 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 			index_iter,
 			index_iter + pred_size,
 			partition_flags,
-			thrust::placeholders::_1 % pred_size > 4
+			thrust::placeholders::_1 % (5 + num_classes) > 4
 		);
 
 		float* in_scores = reinterpret_cast<float*>(scores);
@@ -101,35 +106,47 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 		thrust::cuda_cub::cub::DeviceSelect::Flagged(
 			workspace,
 			workspace_size,
-			p,
+			detections,
 			partition_flags,
 			in_scores,
 			num_partition_selected,
-			scores_size,
+			pred_size,
 			stream
 		);
 
+		cudaStreamSynchronize(stream);
+
+		int num_scores_selected = *thrust::device_pointer_cast(num_partition_selected);
+		printf("%d, %d\n", num_scores_selected, scores_size);
+		assert(num_scores_selected == scores_size);
+
+		index_iter = thrust::cuda_cub::cub::CountingInputIterator<int>(0);
 		thrust::transform(
 			on_stream,
 			index_iter,
 			index_iter + pred_size,
 			partition_flags,
-			thrust::placeholders::_1 % pred_size < 4
+			thrust::placeholders::_1 % (5 + num_classes) < 4
 		);
 
 		float* in_boxes = reinterpret_cast<float*>(boxes);
 		thrust::cuda_cub::cub::DeviceSelect::Flagged(
 			workspace,
 			workspace_size,
-			p,
+			detections,
 			partition_flags,
 			in_boxes,
 			num_partition_selected,
-			boxes_size,
+			pred_size,
 			stream
 		);
 
 		cudaStreamSynchronize(stream);
+
+		int num_boxes_selected = *thrust::device_pointer_cast(num_partition_selected);
+		printf("%d, %d\n", num_boxes_selected, boxes_size);
+
+		assert(num_boxes_selected == boxes_size);
 
 		// 使用阈值过滤scores
 		thrust::transform(
@@ -140,13 +157,15 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 			thrust::placeholders::_1 > score_thresh
 		);
 
+		index_iter = thrust::cuda_cub::cub::CountingInputIterator<int>(0);
 		int* num_selected = reinterpret_cast<int*>(indices_sorted);
+
 		thrust::cuda_cub::cub::DeviceSelect::Flagged(
 			workspace,
 			workspace_size,
 			index_iter,
 			flags,
-			indices,
+			indices,  // 输出到indices
 			num_selected,
 			scores_size,
 			stream
@@ -155,6 +174,7 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 		cudaStreamSynchronize(stream);
 
 		int num_detections = *thrust::device_pointer_cast(num_selected);
+		printf("num of score > %f = %d\n", score_thresh, num_detections);
 
 		//
 		auto indices_filtered = indices;
@@ -205,22 +225,26 @@ int cuda_decode_layer(const void* input, void** output, int batch_size, float st
 			const float ph = anchors_d[a * 2 + 1];
 
 			float4 box = float4{
-				in_boxes[grid_idx + num_girds * (a * 4 + 0)],
-				in_boxes[grid_idx + num_girds * (a * 4 + 1)],
-				in_boxes[grid_idx + num_girds * (a * 4 + 2)],
-				in_boxes[grid_idx + num_girds * (a * 4 + 3)]
+				//in_boxes[grid_idx + num_girds * (a * 4 + 0)],
+				//in_boxes[grid_idx + num_girds * (a * 4 + 1)],
+				//in_boxes[grid_idx + num_girds * (a * 4 + 2)],
+				//in_boxes[grid_idx + num_girds * (a * 4 + 3)]
+				 detections[grid_idx + num_girds * (a * (5 + num_classes) + 0)],
+				 detections[grid_idx + num_girds * (a * (5 + num_classes) + 1)],
+				 detections[grid_idx + num_girds * (a * (5 + num_classes) + 2)],
+				 detections[grid_idx + num_girds * (a * (5 + num_classes) + 3)]
 			};
 
-			float bx = x + box.x;
-			float by = y + box.y;
+			float bx = (x + box.x) * stride;
+			float by = (y + box.y) * stride;
 			float bw = pw * box.z;
 			float bh = ph * box.w;
 
 			box = float4{
-				max(0.0f,  bx - bw / 2),
-				max(0.0f, by - bh / 2),
-				min(bx + bw / 2, stride * grid_size),
-				min(by + bh / 2,  stride * grid_size)
+				bx - bw / 2,
+				by - bh / 2,
+				bx + bw / 2,
+				by + bh / 2
 			};
 
 			return thrust::make_tuple(in_scores[i], box, cls);

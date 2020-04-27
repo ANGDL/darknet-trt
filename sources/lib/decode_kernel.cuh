@@ -1,4 +1,4 @@
-#ifndef _DECODE_KERNEL_H_
+﻿#ifndef _DECODE_KERNEL_H_
 #define _DECODE_KERNEL_H_
 
 #include <cuda.h>
@@ -7,7 +7,7 @@
 #include <vector>
 
 int cuda_decode_layer(
-	const void* input,
+	const void* const* inputs,
 	void** output,
 	int batch_size,
 	float stride,

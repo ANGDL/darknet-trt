@@ -298,33 +298,36 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 			}
 		}
 		else if (b_type == "yolo") {
-			nvinfer1::Dims grid_dim = previous->getDimensions();
-			assert(grid_dim.d[2] == grid_dim.d[1]);
-			unsigned int grid_size = grid_dim.d[1];
+			//nvinfer1::Dims grid_dim = previous->getDimensions();
+			//assert(grid_dim.d[2] == grid_dim.d[1]);
+			//unsigned int grid_size = grid_dim.d[1];
 
-			nvinfer1::IPlugin* yolo_plugin = new YoloLayer(config->get_bboxes(), config->OUTPUT_CLASSES, grid_size);
-			nvinfer1::ILayer* yolo_layer = network->addPlugin(&previous, 1, *yolo_plugin);
+			//auto yolo_plugin = YoloLayerPlugin(config->get_bboxes(), config->OUTPUT_CLASSES, grid_size);
+			//nvinfer1::ILayer* yolo_layer = network->addPluginV2(&previous, 1, yolo_plugin);
 
-			std::string layer_name = "yolo_" + to_string(i);
-			if (nullptr == yolo_layer) {
-				std::cout << "add " << layer_name << " layer error " << __func__ << ": " << __LINE__ << std::endl;
-				return false;
-			}
+			//std::string layer_name = "yolo_" + to_string(i);
+			//if (nullptr == yolo_layer) {
+			//	std::cout << "add " << layer_name << " layer error " << __func__ << ": " << __LINE__ << std::endl;
+			//	return false;
+			//}
 
-			yolo_layer->setName(layer_name.c_str());
+			//yolo_layer->setName(layer_name.c_str());
 
-			nvinfer1::ITensor* yolo_output = yolo_layer->getOutput(0);
+			//nvinfer1::ITensor* yolo_output = yolo_layer->getOutput(0);
 
 			//print
-			print_layer_info(i, yolo_layer->getName(), previous->getDimensions(), yolo_layer->getOutput(0)->getDimensions(), weight_ptr);
+			//print_layer_info(i, yolo_layer->getName(), previous->getDimensions(), yolo_layer->getOutput(0)->getDimensions(), weight_ptr);
 
-			network->markOutput(*yolo_output);
-			yolo_tensors.push_back(yolo_output);
-			output_tensors.push_back(yolo_output);
+			//network->markOutput(*yolo_output);
+			//yolo_tensors.push_back(yolo_output);
+			//output_tensors.push_back(yolo_output);
 
-			previous = yolo_output;
-			channels = get_num_channels(previous);
-			previous->setName(layer_name.c_str());
+			//previous = yolo_output;
+			//channels = get_num_channels(previous);
+			//previous->setName(layer_name.c_str());
+
+			yolo_tensors.push_back(previous);
+			output_tensors.push_back(previous);
 		}
 		else if (b_type == "upsample") {
 			nvinfer1::ILayer* upsample_layer = add_upsample(i, block, weights, trt_weights, weight_ptr, channels, previous, network.get());
@@ -372,16 +375,13 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 	}
 
 	// 添加decode plugin
-	for (size_t i = 0; i < yolo_tensors.size(); i++)
-	{
-		network->unmarkOutput(*yolo_tensors[i]);
-	}
 
 	std::vector<ILayer*> decode_layers;
 	std::vector<float> anchors;
 
 	if (config->get_network_type() == "yolov3-tiny") {
 		auto cfg = dynamic_cast<YoloV3TinyCfg*>(config.get());
+
 		// yolo_layer_1
 		for (size_t i = 0; i < cfg->get_bboxes(); i++) {
 			anchors.push_back(cfg->ANCHORS[cfg->MASK_1[i] * 2]);

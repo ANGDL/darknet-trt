@@ -121,8 +121,19 @@ namespace darknet {
 		int enqueue(int batchSize,
 			const void* const* inputs, void** outputs,
 			void* workspace, cudaStream_t stream) override {
+			size_t pred_size = num_anchors * (5 + num_classes) * grid_size * grid_size;
+			float* test_input;
+			cudaMallocHost(&test_input, pred_size);
+			cudaMemcpy(test_input, inputs[0], pred_size, cudaMemcpyDeviceToHost);
+
+			for (int i = 0; i < pred_size; ++i) {
+				printf("%f ", test_input[i]);
+			}
+			printf("\n ");
+			cudaFreeHost(test_input);
+
 			return cuda_decode_layer(
-				inputs[0],
+				inputs,
 				outputs,
 				batchSize,
 				stride,

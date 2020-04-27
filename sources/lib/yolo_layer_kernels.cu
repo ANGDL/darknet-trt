@@ -48,12 +48,14 @@ void kernel_yolo_layer(
 
 	output[grid_idx + num_grids * (id_z * (num_classes + 5) + 3)] = __expf(input[grid_idx + num_grids * (id_z * (num_classes + 5) + 3)]);  // exp(th) 
 
-	output[grid_idx + num_grids * (id_z * (num_classes + 5) + 4)] = d_sigmod(input[grid_idx + num_grids * (id_z * (num_classes + 5) + 4)]);  // sigmod(to)
+	float obj_score = d_sigmod(input[grid_idx + num_grids * (id_z * (num_classes + 5) + 4)]);  // sigmod(to)
+
+	output[grid_idx + num_grids * (id_z * (num_classes + 5) + 4)] = 1.0;
 
 	for (unsigned int i = 0; i < num_classes; ++i)
 	{
 		output[grid_idx + num_grids * (id_z * (5 + num_classes) + (5 + i))]
-			= d_sigmod(input[grid_idx + num_grids * (id_z * (5 + num_classes) + (5 + i))]);
+			= d_sigmod(input[grid_idx + num_grids * (id_z * (5 + num_classes) + (5 + i))]) * obj_score;
 	}
 }
 

@@ -41,7 +41,6 @@ namespace darknet {
 		typedef std::unique_ptr<nvinfer1::IPlugin, IPluginDeleter> unique_ptr_iplugin;
 
 		std::vector<unique_ptr_nvplugin> leakyReLU_layers;
-		std::vector<unique_ptr_iplugin> yolo_layers;
 		std::vector<unique_ptr_iplugin> upsample_layers;
 	};
 }
