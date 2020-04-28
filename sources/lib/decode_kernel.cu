@@ -17,47 +17,14 @@
 
 int cuda_decode_layer(const void* const* inputs, void** output, int batch_size, float stride,
 	size_t grid_size, size_t num_anchors, size_t num_classes, const std::vector<float>& anchors,
-	float score_thresh, int top_n, void* workspace, size_t workspace_size, cudaStream_t stream)
+	float score_thresh,  void* workspace, size_t workspace_size, cudaStream_t stream)
 {
 
-	size_t scores_size = num_anchors * num_classes * grid_size * grid_size;
-	size_t boxes_size = num_anchors * 4 * grid_size * grid_size;
+	size_t obj_scores_size = num_anchors * grid_size * grid_size;
 	size_t pred_size = num_anchors * (5 + num_classes) * grid_size * grid_size;
 
 	if (!workspace || !workspace_size) {
-		workspace_size = get_size_aligned<bool>(pred_size); //  partition flags
-		workspace_size += get_size_aligned<float>(scores_size);  //socres
-		workspace_size += get_size_aligned<float>(boxes_size);  //boxes
 		workspace_size += get_size_aligned<float>(anchors.size());  // anchors
-		workspace_size += get_size_aligned<bool>(scores_size);   //flags
-		workspace_size += get_size_aligned<int>(scores_size);   // indices
-		workspace_size += get_size_aligned<int>(scores_size);   // indices_sorted
-
-		workspace_size += get_size_aligned<float>(scores_size); // socrs_sorted
-
-
-		// 获取这两步操作需要用到的临时空间
-		size_t temp_size_flag = 0;
-		thrust::cuda_cub::cub::DeviceSelect::Flagged(
-			(void*)nullptr,
-			temp_size_flag,  // temp_storage_bytes
-			thrust::cuda_cub::cub::CountingInputIterator<int>(scores_size),  // InputIteratorT 
-			(bool*)nullptr,  // FlagIterator 
-			(int*)nullptr,   // OutputIteratorT
-			(int*)nullptr,  // NumSelectedIteratorT 
-			scores_size);  // num_items
-
-		size_t temp_size_sort = 0;
-		thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
-			(void*)nullptr,
-			temp_size_sort,
-			(float*)nullptr,
-			(float*)nullptr,
-			(int*)nullptr,
-			(int*)nullptr,
-			scores_size);
-
-		workspace_size += max(temp_size_flag, temp_size_sort);
 		return workspace_size;
 	}
 
@@ -66,197 +33,84 @@ int cuda_decode_layer(const void* const* inputs, void** output, int batch_size, 
 
 	auto on_stream = thrust::cuda::par.on(stream);
 
-	auto partition_flags = get_next_ptr<bool>(pred_size, workspace, workspace_size);
-
-	auto scores = get_next_ptr<float>(scores_size, workspace, workspace_size);
-	auto boxes = get_next_ptr<float>(boxes_size, workspace, workspace_size);
-
-	auto flags = get_next_ptr<bool>(scores_size, workspace, workspace_size);
-	auto indices = get_next_ptr<int>(scores_size, workspace, workspace_size);
-	auto indices_sorted = get_next_ptr<int>(scores_size, workspace, workspace_size);
-
-	auto scores_sorted = get_next_ptr<float>(scores_size, workspace, workspace_size);
-
-
 	for (int batch = 0; batch < batch_size; ++batch) {
 		auto detections = static_cast<const float*>(inputs[0]) + batch * pred_size;
 
-		for (int i = 0; i < pred_size; ++i) {
-			printf("%f ", *(thrust::device_pointer_cast(((float*)detections + i))));
-		}
-		printf("\n");
+		auto out_scores = static_cast<float*>(output[0]) + batch * grid_size * grid_size * num_anchors;
+		auto out_boxes = static_cast<float4*>(output[1]) + batch * grid_size * grid_size * num_anchors ;
+		auto out_classes = static_cast<float*>(output[2]) + batch * grid_size * grid_size * num_anchors;
 
-		auto out_scores = static_cast<float*>(output[0]) + batch * top_n;
-		auto out_boxes = static_cast<float4*>(output[1]) + batch * top_n;
-		auto out_classes = static_cast<float*>(output[2]) + batch * top_n;
-
-		// 分离confidence soces 和 bboxes
-		auto index_iter = thrust::cuda_cub::cub::CountingInputIterator<int>(0);
-		thrust::transform(
-			on_stream,
-			index_iter,
-			index_iter + pred_size,
-			partition_flags,
-			thrust::placeholders::_1 % (5 + num_classes) > 4
-		);
-
-		float* in_scores = reinterpret_cast<float*>(scores);
-		int* num_partition_selected = reinterpret_cast<int*>(indices);
-
-		thrust::cuda_cub::cub::DeviceSelect::Flagged(
-			workspace,
-			workspace_size,
-			detections,
-			partition_flags,
-			in_scores,
-			num_partition_selected,
-			pred_size,
-			stream
-		);
-
-		cudaStreamSynchronize(stream);
-
-		int num_scores_selected = *thrust::device_pointer_cast(num_partition_selected);
-		printf("%d, %d\n", num_scores_selected, scores_size);
-		assert(num_scores_selected == scores_size);
-
-		index_iter = thrust::cuda_cub::cub::CountingInputIterator<int>(0);
-		thrust::transform(
-			on_stream,
-			index_iter,
-			index_iter + pred_size,
-			partition_flags,
-			thrust::placeholders::_1 % (5 + num_classes) < 4
-		);
-
-		float* in_boxes = reinterpret_cast<float*>(boxes);
-		thrust::cuda_cub::cub::DeviceSelect::Flagged(
-			workspace,
-			workspace_size,
-			detections,
-			partition_flags,
-			in_boxes,
-			num_partition_selected,
-			pred_size,
-			stream
-		);
-
-		cudaStreamSynchronize(stream);
-
-		int num_boxes_selected = *thrust::device_pointer_cast(num_partition_selected);
-		printf("%d, %d\n", num_boxes_selected, boxes_size);
-
-		assert(num_boxes_selected == boxes_size);
-
-		// 使用阈值过滤scores
-		thrust::transform(
-			on_stream,
-			in_scores,
-			in_scores + scores_size,
-			flags,
-			thrust::placeholders::_1 > score_thresh
-		);
-
-		index_iter = thrust::cuda_cub::cub::CountingInputIterator<int>(0);
-		int* num_selected = reinterpret_cast<int*>(indices_sorted);
-
-		thrust::cuda_cub::cub::DeviceSelect::Flagged(
-			workspace,
-			workspace_size,
-			index_iter,
-			flags,
-			indices,  // 输出到indices
-			num_selected,
-			scores_size,
-			stream
-		);
-
-		cudaStreamSynchronize(stream);
-
-		int num_detections = *thrust::device_pointer_cast(num_selected);
-		printf("num of score > %f = %d\n", score_thresh, num_detections);
-
-		//
-		auto indices_filtered = indices;
-		if (num_detections > top_n) {
-			thrust::gather(
-				on_stream,
-				indices,
-				indices + num_detections,
-				in_scores,
-				scores
-			);
-			thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
-				workspace,
-				workspace_size,
-				scores,
-				scores_sorted,
-				indices,
-				indices_sorted,
-				num_detections,
-				0,
-				sizeof(*scores) * 8,
-				stream
-			);
-
-			indices_filtered = indices_sorted;
-			num_detections = top_n;
-		}
 
 		// 收集boxes
+		auto index_iter = thrust::cuda_cub::cub::CountingInputIterator<int>(0);
 
 		thrust::transform(
 			on_stream,
-			indices_filtered,
-			indices_filtered + num_detections,
+			index_iter,
+			index_iter + obj_scores_size,
 			thrust::make_zip_iterator(
 				thrust::make_tuple(out_scores, out_boxes, out_classes)
 			),
 			[=]__device__(int i) {
 			int x = i % grid_size;
 			int y = (i / grid_size) % grid_size;
-			int a = (i / num_classes / grid_size / grid_size) % num_anchors;
-			int cls = (i / grid_size / grid_size) % num_classes;
+			int b = (i / grid_size / grid_size) % num_anchors;
+
+			assert(b < 3);
 
 			const int num_girds = grid_size * grid_size;
 			const int grid_idx = y * grid_size + x;
 
-			const float pw = anchors_d[a * 2];
-			const float ph = anchors_d[a * 2 + 1];
+			const float pw = anchors_d[b * 2];
+			const float ph = anchors_d[b * 2 + 1];
+
+			const float bx = x + detections[grid_idx + num_girds * (b * (5 + num_classes) + 0)];
+			const float by = y + detections[grid_idx + num_girds * (b * (5 + num_classes) + 1)];
+			const float bw = pw * detections[grid_idx + num_girds * (b * (5 + num_classes) + 2)];
+			const float bh = ph * detections[grid_idx + num_girds * (b * (5 + num_classes) + 3)];
+
+			const float obj_score = detections[grid_idx + num_girds * (b * (5 + num_classes) + 4)];
+
+			float bbx = bx * stride;
+			float bby = by * stride;
+
+			float x1 = bbx - bw / 2;
+			float y1 = bby - bh / 2;
+			float x2 = bbx + bw / 2;
+			float y2 = bby + bh / 2;
 
 			float4 box = float4{
-				//in_boxes[grid_idx + num_girds * (a * 4 + 0)],
-				//in_boxes[grid_idx + num_girds * (a * 4 + 1)],
-				//in_boxes[grid_idx + num_girds * (a * 4 + 2)],
-				//in_boxes[grid_idx + num_girds * (a * 4 + 3)]
-				 detections[grid_idx + num_girds * (a * (5 + num_classes) + 0)],
-				 detections[grid_idx + num_girds * (a * (5 + num_classes) + 1)],
-				 detections[grid_idx + num_girds * (a * (5 + num_classes) + 2)],
-				 detections[grid_idx + num_girds * (a * (5 + num_classes) + 3)]
+				x1,
+				y1,
+				x2, 
+				y2
 			};
 
-			float bx = (x + box.x) * stride;
-			float by = (y + box.y) * stride;
-			float bw = pw * box.z;
-			float bh = ph * box.w;
+			float confidence_score = -9.9f;
+			int label_idx = -1;
 
-			box = float4{
-				bx - bw / 2,
-				by - bh / 2,
-				bx + bw / 2,
-				by + bh / 2
-			};
+			for (unsigned int i = 0; i < num_classes; ++i)
+			{
+				float prob = detections[grid_idx + num_girds * (b * (5 + num_classes) + (5 + i))];
 
-			return thrust::make_tuple(in_scores[i], box, cls);
+				if (prob > confidence_score)
+				{
+					confidence_score = prob;
+					label_idx = i;
+				}
+			}
+
+			confidence_score *= obj_score;
+
+			if (confidence_score < score_thresh) {
+				confidence_score = -9.9f;
+			}
+/*			else {
+				printf("%f, %f, %f , %f, %f, %d\n", confidence_score, box.x, box.y, box.z, box.w, label_idx);
+			}*/		
+			return thrust::make_tuple(confidence_score, box, (float)label_idx);
 		}
 		);
-
-		if (num_detections < top_n) {
-			thrust::fill(on_stream, out_scores + num_detections,
-				out_scores + top_n, 0.0f);
-			thrust::fill(on_stream, out_classes + num_detections,
-				out_classes + top_n, 0.0f);
-		}
 	}
 	return 0;
 }

@@ -12,7 +12,6 @@ namespace darknet {
 	{
 	private:
 		float score_thresh;
-		int top_n;
 		std::vector<float> anchors;
 
 		float stride;
@@ -25,7 +24,6 @@ namespace darknet {
 		void deserialize(void const* data, size_t length) {
 			const char* d = static_cast<const char*>(data);
 			read(d, score_thresh);
-			read(d, top_n);
 			size_t anchors_size;
 			read(d, anchors_size);
 			while (anchors_size--)
@@ -44,7 +42,6 @@ namespace darknet {
 		void serialize(void* buffer) const  override {
 			char* d = static_cast<char*> (buffer);
 			write(d, score_thresh);
-			write(d, top_n);
 			write(d, anchors.size());
 			for (auto& val : anchors) {
 				write(d, val);
@@ -56,15 +53,15 @@ namespace darknet {
 			write(d, num_classes);
 		}
 		size_t getSerializationSize() const  override {
-			return sizeof(score_thresh) + sizeof(top_n) + sizeof(size_t) +
+			return sizeof(score_thresh) + sizeof(size_t) +
 				sizeof(float) * anchors.size() + sizeof(stride) + sizeof(grid_size) +
 				sizeof(num_anchors) + sizeof(num_classes);
 		}
 
 	public:
-		darknet::DecodePlugin::DecodePlugin(float score_thresh, int top_n, std::vector<float>const& anchors,
+		darknet::DecodePlugin::DecodePlugin(float score_thresh, std::vector<float>const& anchors,
 			int stride, size_t grid_size, size_t num_anchors, size_t num_classes) :
-			score_thresh(score_thresh), top_n(top_n), anchors(anchors),
+			score_thresh(score_thresh), anchors(anchors),
 			stride(stride), grid_size(grid_size), num_anchors(num_anchors), num_classes(num_classes) {
 
 		}
@@ -89,7 +86,7 @@ namespace darknet {
 			const Dims* inputs, int nbInputDims) override {
 			assert(nbInputDims == 1);
 			assert(index < this->getNbOutputs());
-			return Dims3(top_n * (index == 1 ? 4 : 1), 1, 1);
+			return Dims3(num_anchors * grid_size*grid_size * (index == 1 ? 4 : 1), 1, 1);
 		}
 
 		bool supportsFormat(DataType type, PluginFormat format) const override {
@@ -111,7 +108,6 @@ namespace darknet {
 				num_classes,
 				anchors,
 				score_thresh,
-				top_n,
 				nullptr,
 				0,
 				nullptr
@@ -121,16 +117,16 @@ namespace darknet {
 		int enqueue(int batchSize,
 			const void* const* inputs, void** outputs,
 			void* workspace, cudaStream_t stream) override {
-			size_t pred_size = num_anchors * (5 + num_classes) * grid_size * grid_size;
-			float* test_input;
-			cudaMallocHost(&test_input, pred_size);
-			cudaMemcpy(test_input, inputs[0], pred_size, cudaMemcpyDeviceToHost);
+			//size_t pred_size = (5 + num_classes) * grid_size * grid_size;
+			//float* test_input;
+			//cudaMallocHost(&test_input, pred_size * sizeof(float));
+			//cudaMemcpy(test_input, inputs[0], pred_size*sizeof(float), cudaMemcpyDeviceToHost);
 
-			for (int i = 0; i < pred_size; ++i) {
-				printf("%f ", test_input[i]);
-			}
-			printf("\n ");
-			cudaFreeHost(test_input);
+			//for (int i = 0; i < pred_size; ++i) {
+			//	printf("%f ", test_input[i]);
+			//}
+			//printf("\n ");
+			//cudaFreeHost(test_input);
 
 			return cuda_decode_layer(
 				inputs,
@@ -142,7 +138,6 @@ namespace darknet {
 				num_classes,
 				anchors,
 				score_thresh,
-				top_n,
 				workspace,
 				this->getWorkspaceSize(batchSize),
 				stream
@@ -190,7 +185,7 @@ namespace darknet {
 		}
 
 		IPluginV2Ext* clone() const override {
-			return new DecodePlugin(score_thresh, top_n, anchors, stride, grid_size, num_anchors, num_classes);
+			return new DecodePlugin(score_thresh, anchors, stride, grid_size, num_anchors, num_classes);
 		}
 	};
 

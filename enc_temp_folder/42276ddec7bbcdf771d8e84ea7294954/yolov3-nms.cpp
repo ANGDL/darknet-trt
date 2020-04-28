@@ -43,6 +43,9 @@ void darknet::YoloV3NMS::infer(const unsigned char* input)
 
 std::vector<std::vector<BBoxInfo>> darknet::YoloV3NMS::get_detecions(const int image_w, const int image_h)
 {
+	float scale = std::min(static_cast<float>(config->INPUT_W) / image_w, static_cast<float>(config->INPUT_H) / image_h);
+	float dx = (config->INPUT_W - scale * image_w) / 2;
+	float dy = (config->INPUT_H - scale * image_h) / 2;
 
 	std::vector<std::vector<BBoxInfo>> ret;
 	for (int b = 0; b < batch_size; ++b)
@@ -63,6 +66,16 @@ std::vector<std::vector<BBoxInfo>> darknet::YoloV3NMS::get_detecions(const int i
 				float y1 = boxes[i * 4 + 1];
 				float x2 = boxes[i * 4 + 2];
 				float y2 = boxes[i * 4 + 3];
+
+				//x1 -= dx;
+				//x2 -= dx;
+				//y1 -= dy;
+				//y2 -= dy;
+
+				//x1 /= scale;
+				//x2 /= scale;
+				//y1 /= scale;
+				//y2 /= scale;
 
 				x1 = x1 * image_w / config->INPUT_W;
 				x2 = x2 * image_w / config->INPUT_W;

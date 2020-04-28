@@ -46,6 +46,7 @@ __global__ void nms_kernel(
                     if (overlap > threshold) {
                         scores[i] = 0.0f;
                     }
+                   // printf("%f, %f, %f , %f, %f, %d\n", scores[i], mbox.x, mbox.y, mbox.z, mbox.w, icls);
                 }
             }
         }

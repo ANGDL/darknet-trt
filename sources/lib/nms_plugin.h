@@ -73,17 +73,24 @@ namespace darknet {
 		void terminate() override {}
 
 		size_t getWorkspaceSize(int maxBatchSize) const override {
-			static int size = -1;
-			if (size == -1)
-			{
-				size = cuda_nms(maxBatchSize, nullptr, nullptr, count, detections_per_im, nms_thresh, nullptr, 0, nullptr);
-			}
-			return size;
+			return cuda_nms(maxBatchSize, nullptr, nullptr, count, detections_per_im, nms_thresh, nullptr, 0, nullptr);
 		}
 
 		int enqueue(int batchSize,
 			const void* const* inputs, void** outputs,
 			void* workspace, cudaStream_t stream) override {
+
+			//size_t pred_size = count ;
+			//float* test_input;
+			//cudaMallocHost(&test_input, pred_size * sizeof(float));
+			//cudaMemcpy(test_input, inputs[0], pred_size * sizeof(float), cudaMemcpyDeviceToHost);
+
+			//for (int i = 0; i < pred_size; ++i) {
+			//	printf("%f ", test_input[i]);
+			//}
+			//printf("\n ");
+			//cudaFreeHost(test_input);
+
 			return cuda_nms(
 				batchSize,
 				inputs,

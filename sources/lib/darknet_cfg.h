@@ -53,6 +53,7 @@ namespace darknet {
 		float nms_thresh = 0.5;
 		float score_thresh = 0.5;
 		int max_detection = 100;
+		bool use_cuda_nms = false;
 	};
 
 	class YoloV3TinyCfg : public NetConfig

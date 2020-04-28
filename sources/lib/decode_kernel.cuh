@@ -16,7 +16,6 @@ int cuda_decode_layer(
 	size_t num_classes,
 	const std::vector<float>& anchors,
 	float score_thresh,
-	int top_n,
 	void* workspace,
 	size_t workspace_size,
 	cudaStream_t stream

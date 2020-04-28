@@ -306,7 +306,6 @@ std::vector<BBoxInfo> Tensor2BBoxes::operator()(const float* detections, const s
 
 BBox Tensor2BBoxes::convert_bbox(const float& bx, const float& by, const float& bw, const float& bh, const int& stride)
 {
-	// 输出图像中的x, y 映射到 输入图像中的 x,y
 	float x = bx * stride;
 	float y = by * stride;
 

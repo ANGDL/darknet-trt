@@ -170,14 +170,36 @@ namespace darknet {
 		nvinfer1::IPluginV2Layer* add_decode(
 			nvinfer1::ITensor* input, nvinfer1::INetworkDefinition* network, std::string name,
 			float score_thresh,
-			int top_n,
 			const std::vector<float> anchors,
 			int stride,
 			int gride_size,
 			int num_anchors,
 			int num_classes
 		);
+
+
+		nvinfer1::ILayer* add_upsample2(
+			int layer_idx,
+			const darknet::Block& block,
+			std::vector<float>& weights,
+			int& input_channels,
+			nvinfer1::ITensor* input,
+			nvinfer1::INetworkDefinition* network
+		);
+
+		nvinfer1::ILayer* netAddConvBNLeaky(int layerIdx, const darknet::Block& block,
+			std::vector<float>& weights,
+			std::vector<nvinfer1::Weights>& trtWeights, int& weightPtr,
+			int& inputChannels, nvinfer1::ITensor* input,
+			nvinfer1::INetworkDefinition* network);
+
+		nvinfer1::ILayer* netAddConvLinear(int layerIdx, const darknet::Block& block,
+			std::vector<float>& weights,
+			std::vector<nvinfer1::Weights>& trtWeights, int& weightPtr,
+			int& inputChannels, nvinfer1::ITensor* input,
+			nvinfer1::INetworkDefinition* network);
 	};
+
 }
 
 #endif
