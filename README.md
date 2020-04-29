@@ -1,9 +1,20 @@
 # darknet-trt
 
-## requirement
+## Requirement
 
 - c++ 17
-- tensor-rt 6
+- \> tensor-rt 6
+
+## Features:
+
+- [x] 端到端的推理
+- [x] BBox DecodePlugin
+- [x] NmsPlugin
+
+## TODO
+
+- [ ] 半精度推理结果有问题
+- [ ] INT8
 
 ### reference:
 
