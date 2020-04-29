@@ -105,9 +105,9 @@ int cuda_decode_layer(const void* const* inputs, void** output, int batch_size, 
 			if (confidence_score < score_thresh) {
 				confidence_score = -9.9f;
 			}
-/*			else {
-				printf("%f, %f, %f , %f, %f, %d\n", confidence_score, box.x, box.y, box.z, box.w, label_idx);
-			}*/		
+
+			////printf("%f, %f, %f , %f, %f, %d\n", confidence_score, box.x, box.y, box.z, box.w, label_idx);
+
 			return thrust::make_tuple(confidence_score, box, (float)label_idx);
 		}
 		);

@@ -74,15 +74,13 @@ namespace darknet {
 
 	class Yolo {
 	public:
-		Yolo(NetConfig* config, uint batch_size, float confidence_thresh, float nms_thresh);
+		Yolo(NetConfig* config, uint batch_size);
 		~Yolo();
 		bool good() const;
 
 	protected:
 		std::unique_ptr<NetConfig> config;
 		uint batch_size;
-		float prob_thresh;
-		float nms_thresh;
 
 		int input_index;
 
@@ -177,29 +175,7 @@ namespace darknet {
 			int num_classes
 		);
 
-
-		nvinfer1::ILayer* add_upsample2(
-			int layer_idx,
-			const darknet::Block& block,
-			std::vector<float>& weights,
-			int& input_channels,
-			nvinfer1::ITensor* input,
-			nvinfer1::INetworkDefinition* network
-		);
-
-		nvinfer1::ILayer* netAddConvBNLeaky(int layerIdx, const darknet::Block& block,
-			std::vector<float>& weights,
-			std::vector<nvinfer1::Weights>& trtWeights, int& weightPtr,
-			int& inputChannels, nvinfer1::ITensor* input,
-			nvinfer1::INetworkDefinition* network);
-
-		nvinfer1::ILayer* netAddConvLinear(int layerIdx, const darknet::Block& block,
-			std::vector<float>& weights,
-			std::vector<nvinfer1::Weights>& trtWeights, int& weightPtr,
-			int& inputChannels, nvinfer1::ITensor* input,
-			nvinfer1::INetworkDefinition* network);
 	};
-
 }
 
 #endif

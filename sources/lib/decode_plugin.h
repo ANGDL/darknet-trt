@@ -117,6 +117,7 @@ namespace darknet {
 		int enqueue(int batchSize,
 			const void* const* inputs, void** outputs,
 			void* workspace, cudaStream_t stream) override {
+
 			//size_t pred_size = (5 + num_classes) * grid_size * grid_size;
 			//float* test_input;
 			//cudaMallocHost(&test_input, pred_size * sizeof(float));

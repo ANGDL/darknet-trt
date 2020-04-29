@@ -96,6 +96,7 @@ __global__ void kernel_upsample(size_t N, float* x, int w, int h, int c, int bat
 
 	int in_index = b * w * h * c + in_c * w * h + in_h * w + in_w;
 
+	out[out_index] = 0.0f;
 	out[out_index] += scale * x[in_index];
 }
 

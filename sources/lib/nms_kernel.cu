@@ -46,7 +46,7 @@ __global__ void nms_kernel(
                     if (overlap > threshold) {
                         scores[i] = 0.0f;
                     }
-                   // printf("%f, %f, %f , %f, %f, %d\n", scores[i], mbox.x, mbox.y, mbox.z, mbox.w, icls);
+                  // printf("%f, %f, %f , %f, %f, %d\n", scores[i], mbox.x, mbox.y, mbox.z, mbox.w, icls);
                 }
             }
         }
@@ -136,6 +136,7 @@ int cuda_nms(int batch_size,
         nms_kernel << <1, max_threads, 0, stream >> > (num_per_thread, nms_thresh, num_detections,
             indices_sorted, scores_sorted, in_classes, in_boxes);
 
+        NV_CUDA_CHECK(cudaGetLastError());
         // Re-sort with updated scores
         thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
             scores_sorted, scores, indices_sorted, indices, num_detections, 0, sizeof(*scores) * 8, stream);

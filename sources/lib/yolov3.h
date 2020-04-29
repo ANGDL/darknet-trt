@@ -7,7 +7,7 @@ namespace darknet {
 	class YoloV3 : public Yolo
 	{
 	public:
-		explicit YoloV3(NetConfig* config, uint batch_size, float confidence_thresh, float nms_thresh);
+		explicit YoloV3(NetConfig* config, uint batch_size);
 		void infer(const unsigned char* input);
 		std::vector<BBoxInfo> get_detecions(const int image_idx, const int image_w, const int image_h);
 

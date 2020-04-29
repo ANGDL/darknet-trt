@@ -1,10 +1,7 @@
 ﻿#include "yolov3-nms.h"
 
-darknet::YoloV3NMS::YoloV3NMS(NetConfig* cfg,
-	uint batch_size,
-	float confidence_thresh,
-	float nms_thresh) :
-	Yolo(cfg, batch_size, confidence_thresh, nms_thresh),
+darknet::YoloV3NMS::YoloV3NMS(NetConfig* cfg, uint batch_size) :
+	Yolo(cfg, batch_size),
 	output_index_1(-1),
 	output_index_2(-1),
 	output_index_3(-1)

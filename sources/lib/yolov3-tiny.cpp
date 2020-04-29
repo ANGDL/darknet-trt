@@ -2,10 +2,8 @@
 
 darknet::YoloV3Tiny::YoloV3Tiny(
 	NetConfig* config,
-	uint batch_size,
-	float confidence_thresh,
-	float nms_thresh) :
-	Yolo(config, batch_size, confidence_thresh, nms_thresh),
+	uint batch_size) :
+	Yolo(config, batch_size),
 	net_cfg(dynamic_cast<YoloV3TinyCfg*>(config)),
 	output_index_1(-1),
 	output_index_2(-1)
@@ -36,7 +34,8 @@ void darknet::YoloV3Tiny::infer(const unsigned char* input)
 {
 	NV_CUDA_CHECK(cudaMemcpyAsync(bindings[input_index], input, (size_t)batch_size * net_cfg->INPUT_SIZE * sizeof(float), cudaMemcpyHostToDevice, cuda_stream));
 	context->enqueue(batch_size, bindings.data(), cuda_stream, nullptr);
-	NV_CUDA_CHECK(cudaMemcpyAsync(trt_output_buffers[0], bindings[output_index_1], (size_t)batch_size * net_cfg->OUTPUT_SIZE_1 * sizeof(float), cudaMemcpyDeviceToHost, cuda_stream));
+	NV_CUDA_CHECK(
+		cudaMemcpyAsync(trt_output_buffers[0], bindings[output_index_1], (size_t)batch_size * net_cfg->OUTPUT_SIZE_1 * sizeof(float), cudaMemcpyDeviceToHost, cuda_stream));
 	NV_CUDA_CHECK(cudaMemcpyAsync(trt_output_buffers[1], bindings[output_index_2], (size_t)batch_size * net_cfg->OUTPUT_SIZE_2 * sizeof(float), cudaMemcpyDeviceToHost, cuda_stream));
 	cudaStreamSynchronize(cuda_stream);
 }
@@ -48,7 +47,7 @@ std::vector<BBoxInfo> darknet::YoloV3Tiny::get_detecions(const int image_idx, co
 		net_cfg->MASK_1,
 		net_cfg->GRID_SIZE_1,
 		net_cfg->STRIDE_1,
-		prob_thresh,
+		net_cfg->score_thresh,
 		image_w,
 		image_h
 	);
@@ -58,7 +57,7 @@ std::vector<BBoxInfo> darknet::YoloV3Tiny::get_detecions(const int image_idx, co
 		net_cfg->MASK_2,
 		net_cfg->GRID_SIZE_2,
 		net_cfg->STRIDE_2,
-		prob_thresh,
+		net_cfg->score_thresh,
 		image_w,
 		image_h
 	);
@@ -67,5 +66,5 @@ std::vector<BBoxInfo> darknet::YoloV3Tiny::get_detecions(const int image_idx, co
 	res.insert(res.end(), bboxes1.begin(), bboxes1.end());
 	res.insert(res.end(), bboxes2.begin(), bboxes2.end());
 
-	return nms(res, nms_thresh);
+	return nms(res, net_cfg->nms_thresh);
 }

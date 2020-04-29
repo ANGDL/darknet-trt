@@ -7,6 +7,8 @@
 #include "../lib/yolov3-nms.h"
 #include "opencv2/opencv.hpp"
 
+#include <chrono>
+
 void test_parse_config()
 {
 	std::string curr_path{ std::filesystem::current_path().string() };
@@ -85,27 +87,6 @@ void test_yolov3_config()
 	std::cout << std::endl;
 }
 
-void test_create_yolov3_engine() {
-	std::string curr_path{ std::filesystem::current_path().string() };
-	std::string data_file = curr_path + "/config/coco.data";
-	std::string cfg_file = curr_path + "/config/yolov3.cfg";
-	std::string weights_file = curr_path + "/data/yolov3.weights";
-	std::string calib_table_file = "";
-	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3", data_file, cfg_file, weights_file, calib_table_file, "kFLOAT");
-
-	darknet::Yolo yolo_model(cfg, 8, 0.5, 0.5);
-}
-
-void test_create_yolov3_tiny_engine() {
-	std::string curr_path{ std::filesystem::current_path().string() };
-	std::string data_file = curr_path + "/config/coco.data";
-	std::string cfg_file = curr_path + "/config/yolov3-tiny.cfg";
-	std::string weights_file = curr_path + "/data/yolov3-tiny.weights";
-	std::string calib_table_file = "";
-	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3-tiny", data_file, cfg_file, weights_file, calib_table_file, "kFLOAT");
-
-	darknet::Yolo yolo_model(cfg, 8, 0.5, 0.5);
-}
 
 void draw_img(const std::vector<BBoxInfo>& result, cv::Mat& img, const std::vector<cv::Scalar>& color, std::vector<std::string> class_names)
 {
@@ -204,11 +185,7 @@ void test_yolov3_tiny_infer()
 	std::string weights_file = curr_path + "/data/yolov3-tiny.weights";
 	std::string calib_table_file = "";
 	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3-tiny", data_file, cfg_file, weights_file, calib_table_file, "kFLOAT");
-	darknet::YoloV3Tiny net(cfg, batch_size, 0.5, 0.5);
-
-	//cv::VideoCapture cap("D:/下载/东广场4#球机_东广场4#球机_20171121190000_20171121193000.avi");
-	//if (!cap.isOpened())  // check if we succeeded
-	//	return;
+	darknet::YoloV3Tiny net(cfg, batch_size);
 
 	unsigned char* input_buff = new unsigned char[(size_t)net.net_cfg->INPUT_SIZE * batch_size * sizeof(float)];
 	auto p = input_buff;
@@ -244,7 +221,7 @@ void test_yolov3_tiny_infer()
 		draw_img(bboxes, frames[i], color, cfg->CLASS_NAMES);
 	}
 
-	free(input_buff);
+	delete [] input_buff;
 	input_buff = nullptr;
 }
 
@@ -256,13 +233,8 @@ void test_yolov3_infer()
 	std::string cfg_file = curr_path + "/config/yolov3.cfg";
 	std::string weights_file = curr_path + "/data/yolov3.weights";
 	std::string calib_table_file = "";
-	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3", data_file, cfg_file, weights_file, calib_table_file, "kFLOAT");
-	darknet::YoloV3 net(cfg, batch_size, 0.5, 0.5);
-
-
-	//cv::VideoCapture cap("D:/下载/东广场4#球机_东广场4#球机_20171121190000_20171121193000.avi");
-	//if (!cap.isOpened())  // check if we succeeded
-	//	return;
+	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3", data_file, cfg_file, weights_file, calib_table_file, "kHALF");
+	darknet::YoloV3 net(cfg, batch_size);
 
 
 	std::vector<cv::Scalar> color;
@@ -293,27 +265,28 @@ void test_yolov3nms_infer()
 {
 	const int batch_size = 1;
 	std::string curr_path{ std::filesystem::current_path().string() };
-	std::string data_file = curr_path + "/config/coco.data";
-	std::string cfg_file = curr_path + "/config/yolov3.cfg";
-	std::string weights_file = curr_path + "/data/yolov3.weights";
-	std::string calib_table_file = "";
-	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3", data_file, cfg_file, weights_file, calib_table_file, "kFLOAT");
-
 	//std::string data_file = curr_path + "/config/coco.data";
-	//std::string cfg_file = curr_path + "/config/yolov3-tiny.cfg";
-	//std::string weights_file = curr_path + "/data/yolov3-tiny.weights";
+	//std::string cfg_file = curr_path + "/config/yolov3.cfg";
+	//std::string weights_file = curr_path + "/data/yolov3.weights";
 	//std::string calib_table_file = "";
-	//darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3-tiny", data_file, cfg_file, weights_file, calib_table_file, "kFLOAT");
+	//darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3", data_file, cfg_file, weights_file, calib_table_file, "kHALF");
+
+	std::string data_file = curr_path + "/config/coco.data";
+	std::string cfg_file = curr_path + "/config/yolov3-tiny.cfg";
+	std::string weights_file = curr_path + "/data/yolov3-tiny.weights";
+	std::string calib_table_file = "";
+	darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3-tiny", data_file, cfg_file, weights_file, calib_table_file, "kHALF");
 
 	cfg->use_cuda_nms = true;
-	darknet::YoloV3NMS net(cfg, batch_size, 0.5, 0.5);
+	cfg->score_thresh = 0.3;
+	darknet::YoloV3NMS net(cfg, batch_size);
 
 	std::vector<cv::Scalar> color;
 	for (int i = 0; i < cfg->OUTPUT_CLASSES; ++i) color.push_back(randomColor(cv::RNG(244)));
 
 	std::vector<cv::Mat> frames;
 
-	cv::Mat frame = cv::imread("dog.jpg");
+	cv::Mat frame = cv::imread("person.jpg");
 	//cv::imshow("frame", frame);
 	//cv::waitKey(0);
 
@@ -325,7 +298,12 @@ void test_yolov3nms_infer()
 
 	input_mat = blob_from_mats(frames, cfg->INPUT_W, cfg->INPUT_H);
 
+	auto start = std::chrono::system_clock::now();
 	net.infer(input_mat.data);
+	auto end = std::chrono::system_clock::now();
+	std::chrono::duration<double> diff = end - start;
+	std::cout << "Time to fill and iterate a vector of " << " ints : " << diff.count() << " s\n";
+
 	auto bboxes = net.get_detecions(frame.cols, frame.rows);
 	for (int i = 0; i < frames.size(); ++i) {
 		draw_img(bboxes[i], frames[i], color, cfg->CLASS_NAMES);
@@ -338,8 +316,6 @@ int main()
 	std::cout << "Current path is " << fs::current_path() << '\n';
 	//test_parse_config();
 	//test_yolov3_config();
-	//test_create_yolov3_engine();
-	//test_create_yolov3_tiny_engine();
 	//test_yolov3_tiny_infer();
 	//test_yolov3_infer();
 	test_yolov3nms_infer();

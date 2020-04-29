@@ -1,10 +1,8 @@
 ﻿#include "yolov3.h"
 
 darknet::YoloV3::YoloV3(NetConfig* config,
-	uint batch_size,
-	float confidence_thresh,
-	float nms_thresh) :
-	Yolo(config, batch_size, confidence_thresh, nms_thresh),
+	uint batch_size) :
+	Yolo(config, batch_size),
 	net_cfg(dynamic_cast<YoloV3Cfg*>(config)),
 	output_index_1(-1),
 	output_index_2(-1),
@@ -54,7 +52,7 @@ std::vector<BBoxInfo> darknet::YoloV3::get_detecions(const int image_idx, const 
 		net_cfg->MASK_1,
 		net_cfg->GRID_SIZE_1,
 		net_cfg->STRIDE_1,
-		prob_thresh,
+		net_cfg->score_thresh,
 		image_w,
 		image_h
 	);
@@ -64,7 +62,7 @@ std::vector<BBoxInfo> darknet::YoloV3::get_detecions(const int image_idx, const 
 		net_cfg->MASK_2,
 		net_cfg->GRID_SIZE_2,
 		net_cfg->STRIDE_2,
-		prob_thresh,
+		net_cfg->score_thresh,
 		image_w,
 		image_h
 	);
@@ -74,7 +72,7 @@ std::vector<BBoxInfo> darknet::YoloV3::get_detecions(const int image_idx, const 
 		net_cfg->MASK_3,
 		net_cfg->GRID_SIZE_3,
 		net_cfg->STRIDE_3,
-		prob_thresh,
+		net_cfg->score_thresh,
 		image_w,
 		image_h
 	);
@@ -84,5 +82,5 @@ std::vector<BBoxInfo> darknet::YoloV3::get_detecions(const int image_idx, const 
 	res.insert(res.end(), bboxes2.begin(), bboxes2.end());
 	res.insert(res.end(), bboxes3.begin(), bboxes3.end());
 
-	return nms(res, nms_thresh);
+	return nms(res, net_cfg->nms_thresh);
 }
