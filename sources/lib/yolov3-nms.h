@@ -4,19 +4,19 @@
 #include "yolo.h"
 
 namespace darknet {
-	class YoloV3NMS : public Yolo
-	{
-	public:
-		explicit YoloV3NMS(NetConfig* config, uint batch_size);
-		void infer(const unsigned char* input);
-		std::vector<std::vector<BBoxInfo>> get_detecions(const int image_w, const int image_h);
+    class YoloV3NMS : public Yolo {
+    public:
+        explicit YoloV3NMS(NetConfig *config, uint batch_size);
 
-	private:
+        void infer(const unsigned char *input);
 
-		int output_index_1;
-		int output_index_2;
-		int output_index_3;
-	};
+        std::vector<std::vector<BBoxInfo>> get_detecions(const int image_w, const int image_h);
+
+    private:
+        int output_index_1;
+        int output_index_2;
+        int output_index_3;
+    };
 }
 
 #endif

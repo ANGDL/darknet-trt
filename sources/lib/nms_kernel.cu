@@ -17,8 +17,8 @@
 #include "darknet_utils.h"
 
 __global__ void nms_kernel(
-    const int num_per_thread, const float threshold, const int num_detections,
-    const int* indices, float* scores, const float* classes, const float4* boxes) {
+        const int num_per_thread, const float threshold, const int num_detections,
+        const int *indices, float *scores, const float *classes, const float4 *boxes) {
 
     // Go through detections by descending score
     for (int m = 0; m < num_detections; m++) {
@@ -29,7 +29,7 @@ __global__ void nms_kernel(
                 int max_idx = indices[m];
                 int icls = classes[idx];
                 int mcls = classes[max_idx];
-                // ¶ÔÍ¬Ò»Àà±ð½øÐÐÒÖÖÆ
+                // ï¿½ï¿½Í¬Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 if (mcls == icls) {
                     float4 ibox = boxes[idx];
                     float4 mbox = boxes[max_idx];
@@ -46,7 +46,7 @@ __global__ void nms_kernel(
                     if (overlap > threshold) {
                         scores[i] = 0.0f;
                     }
-                  // printf("%f, %f, %f , %f, %f, %d\n", scores[i], mbox.x, mbox.y, mbox.z, mbox.w, icls);
+                    // printf("%f, %f, %f , %f, %f, %d\n", scores[i], mbox.x, mbox.y, mbox.z, mbox.w, icls);
                 }
             }
         }
@@ -57,9 +57,9 @@ __global__ void nms_kernel(
 }
 
 int cuda_nms(int batch_size,
-    const void* const* inputs, void** outputs,
-    size_t count, int detections_per_im, float nms_thresh,
-    void* workspace, size_t workspace_size, cudaStream_t stream) {
+             const void *const *inputs, void **outputs,
+             size_t count, int detections_per_im, float nms_thresh,
+             void *workspace, size_t workspace_size, cudaStream_t stream) {
 
     if (!workspace || !workspace_size) {
         // Return required scratch space size cub style
@@ -70,12 +70,13 @@ int cuda_nms(int batch_size,
         workspace_size += get_size_aligned<float>(count); // scores_sorted
 
         size_t temp_size_flag = 0;
-        thrust::cuda_cub::cub::DeviceSelect::Flagged((void*)nullptr, temp_size_flag,
-            thrust::cuda_cub::cub::CountingInputIterator<int>(count),
-            (bool*)nullptr, (int*)nullptr, (int*)nullptr, count);
+        thrust::cuda_cub::cub::DeviceSelect::Flagged((void *) nullptr, temp_size_flag,
+                                                     thrust::cuda_cub::cub::CountingInputIterator<int>(count),
+                                                     (bool *) nullptr, (int *) nullptr, (int *) nullptr, count);
         size_t temp_size_sort = 0;
-        thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending((void*)nullptr, temp_size_sort,
-            (float*)nullptr, (float*)nullptr, (int*)nullptr, (int*)nullptr, count);
+        thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending((void *) nullptr, temp_size_sort,
+                                                                    (float *) nullptr, (float *) nullptr,
+                                                                    (int *) nullptr, (int *) nullptr, count);
         workspace_size += std::max(temp_size_flag, temp_size_sort);
 
         return workspace_size;
@@ -90,60 +91,61 @@ int cuda_nms(int batch_size,
     auto scores_sorted = get_next_ptr<float>(count, workspace, workspace_size);
 
     for (int batch = 0; batch < batch_size; batch++) {
-        auto in_scores = static_cast<const float*>(inputs[0]) + batch * count;
-        auto in_boxes = static_cast<const float4*>(inputs[1]) + batch * count;
-        auto in_classes = static_cast<const float*>(inputs[2]) + batch * count;
+        auto in_scores = static_cast<const float *>(inputs[0]) + batch * count;
+        auto in_boxes = static_cast<const float4 *>(inputs[1]) + batch * count;
+        auto in_classes = static_cast<const float *>(inputs[2]) + batch * count;
 
-        auto out_scores = static_cast<float*>(outputs[0]) + batch * detections_per_im;
-        auto out_boxes = static_cast<float4*>(outputs[1]) + batch * detections_per_im;
-        auto out_classes = static_cast<float*>(outputs[2]) + batch * detections_per_im;
+        auto out_scores = static_cast<float *>(outputs[0]) + batch * detections_per_im;
+        auto out_boxes = static_cast<float4 *>(outputs[1]) + batch * detections_per_im;
+        auto out_classes = static_cast<float *>(outputs[2]) + batch * detections_per_im;
 
         // Discard null scores
         thrust::transform(on_stream, in_scores, in_scores + count,
-            flags, thrust::placeholders::_1 > 0.0f);
+                          flags, thrust::placeholders::_1 > 0.0f);
 
-        int* num_selected = reinterpret_cast<int*>(indices_sorted);
+        int *num_selected = reinterpret_cast<int *>(indices_sorted);
         thrust::cuda_cub::cub::DeviceSelect::Flagged(
-            workspace, 
-            workspace_size,
-            thrust::cuda_cub::cub::CountingInputIterator<int>(0),
-            flags, 
-            indices,  // Êä³öË÷Òý
-            num_selected,  // ÊýÁ¿
-            count, stream);
+                workspace,
+                workspace_size,
+                thrust::cuda_cub::cub::CountingInputIterator<int>(0),
+                flags,
+                indices,  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+                num_selected,  // ï¿½ï¿½ï¿½ï¿½
+                count, stream);
 
         cudaStreamSynchronize(stream);
         int num_detections = *thrust::device_pointer_cast(num_selected);
 
         // Sort scores and corresponding indices
-        // Ñ¡³öindices¶ÔÓ¦µÄconfidence scoresµ½scores
+        // Ñ¡ï¿½ï¿½indicesï¿½ï¿½Ó¦ï¿½ï¿½confidence scoresï¿½ï¿½scores
         thrust::gather(on_stream, indices, indices + num_detections, in_scores, scores);
         thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
-            workspace, 
-            workspace_size,
-            scores, 
-            scores_sorted,  // ÅÅÐòºóµÄsocres
-            indices, 
-            indices_sorted, // ÅÅÐòºóscores¶ÔÓ¦µÄindices
-            num_detections, 
-            0, 
-            sizeof(*scores) * 8, 
-            stream);
+                workspace,
+                workspace_size,
+                scores,
+                scores_sorted,  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½socres
+                indices,
+                indices_sorted, // ï¿½ï¿½ï¿½ï¿½ï¿½scoresï¿½ï¿½Ó¦ï¿½ï¿½indices
+                num_detections,
+                0,
+                sizeof(*scores) * 8,
+                stream);
 
         // Launch actual NMS kernel - 1 block with each thread handling n detections
         const int max_threads = 1024;
-        int num_per_thread = ceil((float)num_detections / max_threads);
-        nms_kernel << <1, max_threads, 0, stream >> > (num_per_thread, nms_thresh, num_detections,
-            indices_sorted, scores_sorted, in_classes, in_boxes);
+        int num_per_thread = ceil((float) num_detections / max_threads);
+        nms_kernel << < 1, max_threads, 0, stream >> > (num_per_thread, nms_thresh, num_detections,
+                indices_sorted, scores_sorted, in_classes, in_boxes);
 
         NV_CUDA_CHECK(cudaGetLastError());
         // Re-sort with updated scores
         thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
-            scores_sorted, scores, indices_sorted, indices, num_detections, 0, sizeof(*scores) * 8, stream);
+                                                                    scores_sorted, scores, indices_sorted, indices,
+                                                                    num_detections, 0, sizeof(*scores) * 8, stream);
 
         // Gather filtered scores, boxes, classes
         num_detections = min(detections_per_im, num_detections);
-        cudaMemcpyAsync(out_scores, scores, num_detections * sizeof * scores, cudaMemcpyDeviceToDevice, stream);
+        cudaMemcpyAsync(out_scores, scores, num_detections * sizeof *scores, cudaMemcpyDeviceToDevice, stream);
         if (num_detections < detections_per_im) {
             thrust::fill_n(on_stream, out_scores + num_detections, detections_per_im - num_detections, 0);
         }
