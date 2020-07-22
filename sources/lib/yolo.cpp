@@ -1,11 +1,12 @@
 ﻿#include <assert.h>
 #include <iostream>
-#include <fstream>
 #include <algorithm>
 #include "yolo.h"
 #include "darknet_utils.h"
 #include "nms_plugin.h"
 #include "decode_plugin.h"
+#include "yolo_layer_plugin.h"
+
 
 darknet::Yolo::Yolo(NetConfig *config, uint batch_size) :
         config(config),
@@ -292,8 +293,9 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             assert(grid_dim.d[2] == grid_dim.d[1]);
             unsigned int grid_size = grid_dim.d[1];
 
-            auto yolo_plugin = new YoloLayer(config->get_bboxes(), config->OUTPUT_CLASSES, grid_size);
-            nvinfer1::ILayer *yolo_layer = network->addPlugin(&previous, 1, *yolo_plugin);
+//            auto yolo_plugin = new YoloLayer(config->get_bboxes(), config->OUTPUT_CLASSES, grid_size);
+            auto yolo_plugin = YoloLayerPlugin(config->get_bboxes(), config->OUTPUT_CLASSES, grid_size);
+            nvinfer1::ILayer *yolo_layer = network->addPluginV2(&previous, 1, yolo_plugin);
 
             std::string layer_name = "yolo_" + to_string(i);
             if (nullptr == yolo_layer) {

@@ -263,16 +263,17 @@ void test_yolov3nms_infer() {
     //std::string calib_table_file = "";
     //darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3", data_file, cfg_file, weights_file, calib_table_file, "kHALF");
 
-    std::string data_file = curr_path + "/config/coco.data";
-    std::string cfg_file = curr_path + "/config/yolov3-tiny.cfg";
-    std::string weights_file = curr_path + "/data/yolov3-tiny.weights";
+    std::string data_file = curr_path + "/../config/coco.data";
+    std::string cfg_file = curr_path + "/../config/yolov3-tiny.cfg";
+    std::string weights_file = curr_path + "/../data/yolov3-tiny.weights";
     std::string calib_table_file = "";
     darknet::NetConfig *cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3-tiny", data_file, cfg_file,
                                                                                 weights_file, calib_table_file,
-                                                                                "kHALF");
+                                                                                "kFLOAT");
 
     cfg->use_cuda_nms = true;
     cfg->score_thresh = 0.3;
+    cfg->nms_thresh = 0.2;
     darknet::YoloV3NMS net(cfg, batch_size);
 
     std::vector<cv::Scalar> color;

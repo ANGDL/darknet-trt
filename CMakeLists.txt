@@ -38,7 +38,6 @@ add_library(
         ./sources/lib/decode_kernel.cu
         ./sources/lib/yolo_layer_kernels.cu
         ./sources/lib/yolo.cpp
-        ./sources/lib/plugin_factory.cpp
         ./sources/lib/yolov3-nms.cpp
         ./sources/lib/yolov3.cpp
         ./sources/lib/yolo.cpp

@@ -74,9 +74,12 @@ std::vector<float> load_weights(const std::string weights_path, const std::strin
 
 int get_num_channels(nvinfer1::ITensor *t) {
     nvinfer1::Dims d = t->getDimensions();
-    assert(d.nbDims == 3);
-
-    return d.d[0];
+    assert(d.nbDims >= 3);
+    if (d.nbDims == 3)
+        return d.d[0];
+    else if (d.nbDims == 4){
+        return d.d[1];
+    }
 }
 
 

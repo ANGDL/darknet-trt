@@ -8,7 +8,6 @@
 #include "darknet_cfg.h"
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
-#include "plugin_factory.h"
 
 
 namespace darknet {
