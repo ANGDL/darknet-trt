@@ -5,6 +5,7 @@
 #include <cuda_runtime.h>
 #include <set>
 #include <memory>
+#include <iostream>
 #include "darknet_cfg.h"
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
@@ -58,14 +59,16 @@ namespace darknet {
 
     private:
 
-        nvinfer1::DimsHW compute(DimsHW input_dims, DimsHW kernel_size, DimsHW stride, DimsHW padding, DimsHW dilation,
+        nvinfer1::DimsHW compute(nvinfer1::DimsHW input_dims,
+                nvinfer1::DimsHW kernel_size, nvinfer1::DimsHW stride,
+                nvinfer1::DimsHW padding, nvinfer1::DimsHW dilation,
                                  const char *layerName) const {
             int output_dim;
             // same padding
             if (same_pooling_layers.find(layerName) != same_pooling_layers.end()) {
                 output_dim = (input_dims.d[0] + 2 * padding.d[0]) / stride.d[0];
             }
-                //valid padding
+            //valid padding
             else {
                 output_dim = (input_dims.d[0] - kernel_size.d[0]) / stride.d[0] + 1;
             }
@@ -93,7 +96,6 @@ namespace darknet {
         nvinfer1::ICudaEngine *engine;
         nvinfer1::IExecutionContext *context;
         cudaStream_t cuda_stream;
-        PluginFactory *plugin_factory;
         std::vector<void *> bindings;
         std::vector<float *> trt_output_buffers;
         std::unique_ptr<YoloTinyMaxpoolPaddingFormula> tiny_maxpool_padding_formula;

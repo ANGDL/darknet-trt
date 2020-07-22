@@ -2,6 +2,7 @@
 #define _YOLOV3_H_
 
 #include "yolo.h"
+#include "darknet_utils.h"
 
 namespace darknet {
     class YoloV3 : public Yolo {

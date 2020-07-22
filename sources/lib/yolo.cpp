@@ -15,7 +15,6 @@ darknet::Yolo::Yolo(NetConfig *config, uint batch_size) :
         engine(nullptr),
         context(nullptr),
         cuda_stream(nullptr),
-        plugin_factory(new PluginFactory),
         bindings(0),
         trt_output_buffers(0),
         tiny_maxpool_padding_formula(new YoloTinyMaxpoolPaddingFormula()),
@@ -45,7 +44,7 @@ darknet::Yolo::Yolo(NetConfig *config, uint batch_size) :
     if (!is_init && (!file_exits(planfile))) {
         return;
     }
-    engine = load_trt_engine(planfile, plugin_factory, logger);
+    engine = load_trt_engine(planfile,logger);
     if (nullptr == engine) {
         is_init = false;
         return;
@@ -85,10 +84,6 @@ darknet::Yolo::~Yolo() {
     if (engine != nullptr) {
         engine->destroy();
         engine = nullptr;
-    }
-    if (plugin_factory != nullptr) {
-        plugin_factory->destroy();
-        plugin_factory = nullptr;
     }
 }
 

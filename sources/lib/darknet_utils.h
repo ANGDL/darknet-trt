@@ -66,7 +66,7 @@ int get_num_channels(nvinfer1::ITensor *t);
 bool save_engine(const nvinfer1::ICudaEngine *engine, const std::string &file_name);
 
 nvinfer1::ICudaEngine *
-load_trt_engine(const std::string plan_file, nvinfer1::IPluginFactory *plugin_factory, nvinfer1::ILogger &logger);
+load_trt_engine(const std::string plan_file, nvinfer1::ILogger &logger);
 
 void print_layer_info(int layer_idx, std::string layer_name, nvinfer1::Dims input_dims,
                       nvinfer1::Dims output_dims, size_t weight_ptr);

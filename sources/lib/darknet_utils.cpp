@@ -110,7 +110,7 @@ bool save_engine(const nvinfer1::ICudaEngine *engine, const std::string &file_na
 }
 
 nvinfer1::ICudaEngine *
-load_trt_engine(const std::string plan_file, nvinfer1::IPluginFactory *plugin_factory, nvinfer1::ILogger &logger) {
+load_trt_engine(const std::string plan_file, nvinfer1::ILogger &logger) {
     std::cout << "loading trt engine form " << plan_file << std::endl;
 
     assert(file_exits(plan_file));
@@ -144,7 +144,7 @@ load_trt_engine(const std::string plan_file, nvinfer1::IPluginFactory *plugin_fa
         return nullptr;
     }
 
-    nvinfer1::ICudaEngine *engine = runtime->deserializeCudaEngine(engine_data.data(), fsize, plugin_factory);
+    nvinfer1::ICudaEngine *engine = runtime->deserializeCudaEngine(engine_data.data(), fsize);
     if (!engine) {
         std::cout << "create Cuda Engine failed !" << std::endl;
         return nullptr;
