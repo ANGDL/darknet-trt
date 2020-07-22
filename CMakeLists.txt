@@ -17,6 +17,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 
 set(OPENCV_PATH "/mnt/d/libs/opencv-4.4.0/bin")
 set(TRT_PATH "/home/x/TensorRT-7.1.3.4")
+set(CUDA_PATH "/usr/local/cuda")
 
 include_directories(
         ./sources/lib
@@ -41,7 +42,7 @@ add_library(
         ./sources/lib/yolov3-nms.cpp
         ./sources/lib/yolov3.cpp
         ./sources/lib/yolo.cpp
-)
+        sources/lib/yolo_layer_plugin.h)
 
 
 set_target_properties(
@@ -65,10 +66,6 @@ target_link_libraries(
 target_link_libraries(
         test_yolo PRIVATE
         stdc++fs
-        ${OPENCV_PATH}/lib/libopencv_core.so
-        ${OPENCV_PATH}/lib/libopencv_imgproc.so
-        ${OPENCV_PATH}/lib/libopencv_highgui.so
-        ${OPENCV_PATH}/lib/libopencv_imgcodecs.so
-        ${OPENCV_PATH}/lib/libopencv_dnn.so
+        ${OPENCV_PATH}/lib/libopencv_world.so
         yolov3_nms
 )

@@ -58,7 +58,7 @@ namespace darknet {
         const string WEIGHTS_FLIE;
         const string CALIB_FILE;
 
-        float nms_thresh = 0.5;
+        float nms_thresh = 0.6;
         float score_thresh = 0.5;
         int max_detection = 100;
         bool use_cuda_nms = false;

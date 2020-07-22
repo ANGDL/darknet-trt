@@ -363,7 +363,6 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
     }
 
     // 添加decode plugin
-
     if (config->use_cuda_nms) {
         for (auto &t : yolo_tensors) {
             network->unmarkOutput(*t);
@@ -656,6 +655,7 @@ nvinfer1::ILayer *darknet::Yolo::add_conv_linear(int layer_idx, const darknet::B
     return conv;
 }
 
+
 nvinfer1::ILayer *darknet::Yolo::add_upsample(int layer_idx, const darknet::Block &block, std::vector<float> &weights,
                                               std::vector<nvinfer1::Weights> &trt_weights, int &weight_ptr,
                                               int &input_channels, nvinfer1::ITensor *input,
@@ -667,11 +667,11 @@ nvinfer1::ILayer *darknet::Yolo::add_upsample(int layer_idx, const darknet::Bloc
 
     float stride = stof(block.at("stride"));
 
-    nvinfer1::IPlugin *upsample = new UpsampleLayer(stride, input_dims);
-    nvinfer1::IPluginLayer *upsample_layer = network->addPlugin(&input, 1, *upsample);
-    if (nullptr == upsample) {
-        return nullptr;
-    }
+    std::vector<float> scales{1.0, 2.0, 2.0};
+
+    nvinfer1::IResizeLayer *upsample_layer = network->addResize(*input);
+    upsample_layer->setScales(scales.data(), scales.size());
+    upsample_layer->setResizeMode(nvinfer1::ResizeMode::kNEAREST);
 
     std::string layer_name = "upsample_" + to_string(layer_idx);
     upsample_layer->setName(layer_name.c_str());
@@ -774,10 +774,13 @@ darknet::Yolo::add_leakyReLUV2(int layer_idx, nvinfer1::ITensor *input, nvinfer1
 
     float* data = new float[1];
     data[0] = 0.1;
-    nvinfer1::Weights slope{nvinfer1::DataType::kFLOAT, data, 1};
+    nvinfer1::Weights slope{nvinfer1::DataType::kFLOAT, (void *)data, 1};
 
-    Dims slopes_dims{input->getDimensions().nbDims, {1}, {DimensionType::kSPATIAL}};
-    slopes_dims.d[1] = 1;
+    Dims slopes_dims{
+        input->getDimensions().nbDims,
+        {1, 1, 1},
+        {DimensionType::kCHANNEL, DimensionType::kSPATIAL, DimensionType::kSPATIAL}};
+
     auto constLayer = network->addConstant(slopes_dims, slope);
 
     nvinfer1::ILayer* leaky_relu = network->addParametricReLU(*input, *constLayer->getOutput(0));
