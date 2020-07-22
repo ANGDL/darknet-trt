@@ -13,10 +13,10 @@ set(CMAKE_CUDA_HOST_COMPILER "${CMAKE_CXX_COMPILER}")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -ccbin ${CMAKE_CXX_COMPILER}")
 
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wno-write-strings")
 
 set(OPENCV_PATH "/mnt/d/libs/opencv-4.4.0/bin")
-set(TRT_PATH "/home/x/TensorRT-7.1.3.4")
+set(TRT_PATH "/home/x/TensorRT-7.0.0.11")
 set(CUDA_PATH "/usr/local/cuda")
 
 include_directories(
@@ -55,6 +55,11 @@ add_executable(
         sources/apps/test.cpp
 )
 
+add_executable(
+        create_engine
+        sources/apps/create_engine.cpp
+)
+
 target_link_libraries(
         yolov3_nms PRIVATE
         ${TRT_PATH}/lib/libnvinfer.so
@@ -64,7 +69,11 @@ target_link_libraries(
 
 target_link_libraries(
         test_yolo PRIVATE
-        stdc++fs
         ${OPENCV_PATH}/lib/libopencv_world.so
+        yolov3_nms
+)
+
+target_link_libraries(
+        create_engine PRIVATE
         yolov3_nms
 )

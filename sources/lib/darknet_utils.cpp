@@ -6,13 +6,10 @@
 #include "darknet_utils.h"
 #include "NvInfer.h"
 
-#include <experimental/filesystem>
-
-
-namespace fs = std::experimental::filesystem;
 
 bool file_exits(const std::string filename) {
-    return fs::exists(fs::path(filename));
+    std::ifstream f(filename.c_str());
+    return f.good();
 }
 
 static void leftTrim(std::string &s) {
