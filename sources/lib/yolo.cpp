@@ -104,6 +104,8 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
     int channels = config->INPUT_C;
     // 创建builder
     auto builder = unique_ptr_infer<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(logger));
+    // 创建builder config
+    auto builder_config = unique_ptr_infer<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     // 创建network
     auto network = unique_ptr_infer<nvinfer1::INetworkDefinition>(builder->createNetwork());
 
@@ -137,6 +139,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             {nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kSPATIAL}
     };
     nvinfer1::Weights div_weights_trt{nvinfer1::DataType::kFLOAT, div_wights, static_cast<int64_t>(config->INPUT_SIZE)};
+    trt_weights.push_back(div_weights_trt);
 
     nvinfer1::IConstantLayer *div_layer = network->addConstant(div_dim, div_weights_trt);
     if (nullptr == div_layer) {
@@ -505,18 +508,32 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
         return false;
     }
 
-    //
-    builder->setMaxWorkspaceSize(1 << 26);
-    builder->setMaxBatchSize(batch_size);
+//    //
+//    builder->setMaxWorkspaceSize(1 << 26);
+//    builder->setMaxBatchSize(batch_size);
+//
+//    if (data_type == nvinfer1::DataType::kINT8) {
+//        // TODO
+//    } else if (data_type == nvinfer1::DataType::kHALF) {
+//        builder->setHalf2Mode(true);
+//
+//    }
 
-    if (data_type == nvinfer1::DataType::kINT8) {
-        // TODO
-    } else if (data_type == nvinfer1::DataType::kHALF) {
-        builder->setHalf2Mode(true);
+    builder_config->setMaxWorkspaceSize(1 << 26);
+    builder_config->setFlag(BuilderFlag::kGPU_FALLBACK);
+    builder_config->setFlag(BuilderFlag::kSTRICT_TYPES);
+    if (data_type == nvinfer1::DataType::kHALF)
+    {
+        builder_config->setFlag(BuilderFlag::kFP16);
+    }
+    if (data_type == nvinfer1::DataType::kINT8)
+    {
+        builder_config->setFlag(BuilderFlag::kINT8);
     }
 
+
     // 创建 engine
-    auto cuda_engine = unique_ptr_infer<nvinfer1::ICudaEngine>(builder->buildCudaEngine(*network));
+    auto cuda_engine = unique_ptr_infer<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *builder_config));
     if (nullptr == cuda_engine) {
         std::cout << "Build the TensorRT Engine failed !" << __func__ << ": " << __LINE__ << std::endl;
         return false;
@@ -531,9 +548,6 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
     for (uint i = 0; i < trt_weights.size(); ++i) {
         free(const_cast<void *>(trt_weights[i].values));
     }
-
-    delete[] div_wights;
-    div_wights = nullptr;
 
     return true;
 }
@@ -753,18 +767,6 @@ darknet::Yolo::add_bn(int layer_idx, int filters, std::vector<float> &bn_biases,
 
     return bn;
 }
-
-//nvinfer1::IPluginLayer *
-//darknet::Yolo::add_leakyReLU(int layer_idx, nvinfer1::ITensor *input, nvinfer1::INetworkDefinition *network) {
-//    nvinfer1::IPlugin *leaky_relu = nvinfer1::plugin::createPReLUPlugin(0.1);
-//    nvinfer1::IPluginLayer *leaky = network->addPlugin(&input, 1, *leaky_relu);
-//    if (nullptr == leaky) {
-//        return nullptr;
-//    }
-//    std::string layer_name = "leaky_relu_" + to_string(layer_idx);
-//    leaky->setName(layer_name.c_str());
-//    return leaky;
-//}
 
 nvinfer1::ILayer *
 darknet::Yolo::add_leakyReLUV2(int layer_idx, nvinfer1::ITensor *input, nvinfer1::INetworkDefinition *network){
