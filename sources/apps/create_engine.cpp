@@ -10,45 +10,36 @@
 using namespace std;
 
 
-
-int main(int argc, char ** argv){
+int main(int argc, char **argv) {
     int batch_size = 1;
     std::string net_type = "yolov3";
     bool fp16 = false;
     int device_id = 0;
 
-    for (int i = 1; i != argc; ++i)
-    {
-        if (!strcmp(argv[i], "-batch_size"))
-        {
-            if (++i == argc)
-            {
+    for (int i = 1; i != argc; ++i) {
+        if (!strcmp(argv[i], "-batch_size")) {
+            if (++i == argc) {
                 std::cout << "batch_size input error" << std::endl;
             }
             batch_size = stoi(argv[i]);
             continue;
         }
 
-        if (!strcmp(argv[i], "-device"))
-        {
-            if (++i == argc)
-            {
+        if (!strcmp(argv[i], "-device")) {
+            if (++i == argc) {
                 std::cout << "device input error" << std::endl;
             }
             device_id = stoi(argv[i]);
             continue;
         }
 
-        if (!strcmp(argv[i], "-fp16"))
-        {
+        if (!strcmp(argv[i], "-fp16")) {
             fp16 = true;
             continue;
         }
 
-        if (!strcmp(argv[i], "-net_type"))
-        {
-            if (++i == argc)
-            {
+        if (!strcmp(argv[i], "-net_type")) {
+            if (++i == argc) {
                 std::cout << "input error" << std::endl;
             }
             net_type = std::string(argv[i]);
@@ -67,11 +58,11 @@ int main(int argc, char ** argv){
     std::string calib_table_file = "";
     darknet::NetConfig *cfg = darknet::DarkNetCfgFactory::create_network_config(net_type, data_file, cfg_file,
                                                                                 weights_file, calib_table_file,
-                                                                                fp16 ? "kHALF":"kFLOAT");
+                                                                                fp16 ? "kHALF" : "kFLOAT");
 
-    cfg->use_cuda_nms = true;
-    cfg->score_thresh = 0.5;
-    cfg->nms_thresh = 0.2;
+    cfg->use_cuda_nms_ = true;
+    cfg->score_thresh_ = 0.5;
+    cfg->nms_thresh_ = 0.2;
     darknet::YoloV3NMS net(cfg, batch_size);
 
     return 0;

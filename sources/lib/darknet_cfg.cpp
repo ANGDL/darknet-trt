@@ -3,28 +3,29 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <utility>
 
 
 darknet::NetConfig::NetConfig(
-        const string data_file,
-        const string yolo_cfg_file,
-        const string weights_file,
-        const string calib_table_file,
-        const string precision,
-        const string input_blob_name) :
+        const string& data_file,
+        const string& yolo_cfg_file,
+        string  weights_file,
+        string  calib_table_file,
+        string  precision,
+        string  input_blob_name) :
 
         is_good(true),
         blocks(parse_config2blocks(yolo_cfg_file)),
-        PRECISION(precision),
-        INPUT_BLOB_NAME(input_blob_name),
+        PRECISION(std::move(precision)),
+        INPUT_BLOB_NAME(std::move(input_blob_name)),
         INPUT_W(stoi(find_net_property("width", "416"))),
         INPUT_H(stoi(find_net_property("height", "416"))),
         INPUT_C(stoi(find_net_property("channels", "3"))),
         INPUT_SIZE(INPUT_C * INPUT_W * INPUT_H),
         OUTPUT_CLASSES(init_output_classes(data_file)),
         CLASS_NAMES(init_classes_names(data_file)),
-        WEIGHTS_FLIE(weights_file),
-        CALIB_FILE(calib_table_file) {
+        WEIGHTS_FLIE(std::move(weights_file)),
+        CALIB_FILE(std::move(calib_table_file)) {
 
 }
 
@@ -48,16 +49,16 @@ bool darknet::NetConfig::good() const {
 }
 
 
-const std::string darknet::NetConfig::get_network_type() const {
+std::string darknet::NetConfig::get_network_type() const {
     return "";
 }
 
 
-const unsigned int darknet::NetConfig::get_bboxes() const {
+unsigned int darknet::NetConfig::get_bboxes() const {
     return 0;
 }
 
-unsigned int darknet::NetConfig::init_output_classes(string data_file) {
+unsigned int darknet::NetConfig::init_output_classes(const string& data_file) {
     std::fstream sread(data_file, std::fstream::in);
 
     if (file_exits(data_file) && sread.good()) {
@@ -77,7 +78,7 @@ unsigned int darknet::NetConfig::init_output_classes(string data_file) {
     return 0;
 }
 
-std::vector<std::string> darknet::NetConfig::init_classes_names(string data_file) {
+std::vector<std::string> darknet::NetConfig::init_classes_names(const string& data_file) {
     std::fstream sread(data_file, std::fstream::in);
     std::vector<std::string> names;
     if (file_exits(data_file) && sread.good()) {
@@ -108,7 +109,7 @@ std::vector<std::string> darknet::NetConfig::init_classes_names(string data_file
     return names;
 }
 
-darknet::Blocks darknet::NetConfig::parse_config2blocks(string yolo_cfg_file) {
+darknet::Blocks darknet::NetConfig::parse_config2blocks(const string& yolo_cfg_file) {
     std::ifstream file(yolo_cfg_file, std::fstream::in);
 
     std::string line;
@@ -122,11 +123,11 @@ darknet::Blocks darknet::NetConfig::parse_config2blocks(string yolo_cfg_file) {
     }
 
     while (getline(file, line)) {
-        if (line.size() == 0) continue;
+        if (line.empty()) continue;
         if (line.front() == '#') continue;
         line = trim(line);
         if (line.front() == '[') {
-            if (block.size() > 0) {
+            if (!block.empty()) {
                 blocks.push_back(block);
                 block.clear();
             }
@@ -146,9 +147,9 @@ darknet::Blocks darknet::NetConfig::parse_config2blocks(string yolo_cfg_file) {
     return blocks;
 }
 
-std::string darknet::NetConfig::find_net_property(string property, string default_value) {
+std::string darknet::NetConfig::find_net_property(const string& property, string default_value) {
     auto it = std::find_if(blocks.begin(), blocks.end(),
-                      [](const Block &b) { return b.find("type") != b.end() && b.at("type") == "net"; });
+                           [](const Block &b) { return b.find("type") != b.end() && b.at("type") == "net"; });
     if (it != blocks.end()) {
         try {
             return it->at(property);
@@ -162,13 +163,13 @@ std::string darknet::NetConfig::find_net_property(string property, string defaul
 }
 
 darknet::YoloV3TinyCfg::YoloV3TinyCfg(
-        const string data_file,
-        const string yolo_cfg_file,
-        const string weights_file,
-        const string calib_table_file,
-        const string precision,
-        const string input_blob_name,
-        const vector<string> output_names) :
+        const string& data_file,
+        const string& yolo_cfg_file,
+        const string& weights_file,
+        const string& calib_table_file,
+        const string& precision,
+        const string& input_blob_name,
+        const vector<string>& output_names) :
 
         NetConfig(data_file, yolo_cfg_file, weights_file, calib_table_file, precision, input_blob_name),
         BBOXES(3),
@@ -187,12 +188,12 @@ darknet::YoloV3TinyCfg::YoloV3TinyCfg(
 }
 
 
-const std::string darknet::YoloV3TinyCfg::get_network_type() const {
+std::string darknet::YoloV3TinyCfg::get_network_type() const {
     return "yolov3-tiny";
 }
 
 
-const unsigned int darknet::YoloV3TinyCfg::get_bboxes() const {
+unsigned int darknet::YoloV3TinyCfg::get_bboxes() const {
     return BBOXES;
 }
 
@@ -202,7 +203,7 @@ std::vector<int> darknet::YoloV3TinyCfg::find_mask(int idx) {
     for (auto &block : blocks) {
         if (block.find("type") != block.end() && block.at("type") == "yolo") {
             if (++i == idx) {
-                vector<string> mask = split(trim(block.at("mask")), ',');
+                vector <string> mask = split(trim(block.at("mask")), ',');
                 for (auto &c : mask) {
                     res.push_back(stoi(c));
                 }
@@ -218,7 +219,7 @@ std::vector<float> darknet::YoloV3TinyCfg::find_anchors() {
     vector<float> res;
     for (auto &block : blocks) {
         if (block.find("type") != block.end() && block.at("type") == "yolo") {
-            vector<string> anchors = split(trim(block.at("anchors")), ',');
+            vector <string> anchors = split(trim(block.at("anchors")), ',');
             for (auto &c : anchors) {
                 res.push_back(stof(c));
             }
@@ -230,13 +231,13 @@ std::vector<float> darknet::YoloV3TinyCfg::find_anchors() {
 }
 
 darknet::YoloV3Cfg::YoloV3Cfg(
-        const string data_file,
-        const string yolo_cfg_file,
-        const string weights_file,
-        const string calib_table_file,
-        const string precision,
-        const string input_blob_name,
-        const vector<string> output_names) :
+        const string& data_file,
+        const string& yolo_cfg_file,
+        const string& weights_file,
+        const string& calib_table_file,
+        const string& precision,
+        const string& input_blob_name,
+        const vector<string>& output_names) :
 
         YoloV3TinyCfg(data_file, yolo_cfg_file, weights_file, calib_table_file, precision, input_blob_name,
                       output_names),
@@ -248,13 +249,13 @@ darknet::YoloV3Cfg::YoloV3Cfg(
 
 }
 
-const std::string darknet::YoloV3Cfg::get_network_type() const {
+std::string darknet::YoloV3Cfg::get_network_type() const {
     return "yolov3";
 }
 
 darknet::NetConfig *darknet::DarkNetCfgFactory::create_network_config(
-        const std::string network_type, const string data_file, const string yolo_cfg_file, const string weights_file,
-        const string calib_table_file, const string precision) {
+        const std::string& network_type, const string& data_file, const string& yolo_cfg_file, const string weights_file,
+        const string& calib_table_file, const string& precision) {
     if (network_type == "yolov3") {
         return new YoloV3Cfg(data_file, yolo_cfg_file, weights_file, calib_table_file, precision);
     } else if (network_type == "yolov3-tiny") {

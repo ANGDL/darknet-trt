@@ -60,15 +60,15 @@ namespace darknet {
     private:
 
         nvinfer1::DimsHW compute(nvinfer1::DimsHW input_dims,
-                nvinfer1::DimsHW kernel_size, nvinfer1::DimsHW stride,
-                nvinfer1::DimsHW padding, nvinfer1::DimsHW dilation,
+                                 nvinfer1::DimsHW kernel_size, nvinfer1::DimsHW stride,
+                                 nvinfer1::DimsHW padding, nvinfer1::DimsHW dilation,
                                  const char *layerName) const {
             int output_dim;
             // same padding
             if (same_pooling_layers.find(layerName) != same_pooling_layers.end()) {
                 output_dim = (input_dims.d[0] + 2 * padding.d[0]) / stride.d[0];
             }
-            //valid padding
+                //valid padding
             else {
                 output_dim = (input_dims.d[0] - kernel_size.d[0]) / stride.d[0] + 1;
             }
@@ -88,25 +88,25 @@ namespace darknet {
         bool good() const;
 
     protected:
-        std::unique_ptr<NetConfig> config;
-        uint batch_size;
+        std::unique_ptr<NetConfig> config_;
+        uint batch_size_;
 
-        int input_index;
+        int input_index_;
 
-        nvinfer1::ICudaEngine *engine;
-        nvinfer1::IExecutionContext *context;
-        cudaStream_t cuda_stream;
-        std::vector<void *> bindings;
-        std::vector<float *> trt_output_buffers;
-        std::unique_ptr<YoloTinyMaxpoolPaddingFormula> tiny_maxpool_padding_formula;
+        nvinfer1::ICudaEngine *engine_;
+        nvinfer1::IExecutionContext *context_;
+        cudaStream_t cuda_stream_;
+        std::vector<void *> bindings_;
+        std::vector<float *> trt_output_buffers_;
+        std::unique_ptr<YoloTinyMaxpoolPaddingFormula> tiny_maxpool_padding_formula_;
 
-        Logger logger;
+        Logger logger_;
 
-        bool is_init;
+        bool is_init_;
 
     private:
         bool build(const nvinfer1::DataType data_type,
-                   const std::string planfile_path /*, Int8EntropyCalibrator* calibrator*/);
+                   const std::string& planfile_path /*, Int8EntropyCalibrator* calibrator*/);
 
         nvinfer1::ILayer *add_maxpool(int layer_idx, const darknet::Block &block, nvinfer1::ITensor *input,
                                       nvinfer1::INetworkDefinition *network);

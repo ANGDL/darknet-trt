@@ -51,7 +51,7 @@ cv::Scalar randomColor(cv::RNG rng) {
 }
 
 
-void test_yolov3nms_infer(const std::string& net_type) {
+void test_yolov3nms_infer(const std::string &net_type) {
     const int batch_size = 1;
 
     int d = 0;
@@ -69,15 +69,15 @@ void test_yolov3nms_infer(const std::string& net_type) {
     std::string calib_table_file = "";
     darknet::NetConfig *cfg = darknet::DarkNetCfgFactory::create_network_config(net_type, data_file, cfg_file,
                                                                                 weights_file, calib_table_file,
-                                                                                fp16 ? "kHALF":"kFLOAT");
+                                                                                fp16 ? "kHALF" : "kFLOAT");
 
-    cfg->use_cuda_nms = true;
-    cfg->score_thresh = 0.6;
-    cfg->nms_thresh = 0.1;
+    cfg->use_cuda_nms_ = true;
+    cfg->score_thresh_ = 0.6;
+    cfg->nms_thresh_ = 0.1;
     darknet::YoloV3NMS net(cfg, batch_size);
 
     std::vector<cv::Scalar> color;
-    for (int i = 0; i < cfg->OUTPUT_CLASSES; ++i) color.push_back(randomColor(cv::RNG(cv::getTickCount() )));
+    for (int i = 0; i < cfg->OUTPUT_CLASSES; ++i) color.push_back(randomColor(cv::RNG(cv::getTickCount())));
 
     std::vector<cv::Mat> frames;
 
@@ -107,21 +107,18 @@ void test_yolov3nms_infer(const std::string& net_type) {
     }
 }
 
-int main(int argc, char ** argv) {
+int main(int argc, char **argv) {
     int d = 1;
     cudaGetDeviceCount(&d);
-    if(d < 2)
+    if (d < 2)
         cudaSetDevice(0);
     else
         cudaSetDevice(2);
 
     std::string net_type = "yolov3-tiny";
-    for (int i = 1; i != argc; ++i)
-    {
-        if (!strcmp(argv[i], "-net_type"))
-        {
-            if (++i == argc)
-            {
+    for (int i = 1; i != argc; ++i) {
+        if (!strcmp(argv[i], "-net_type")) {
+            if (++i == argc) {
                 std::cout << "input error" << std::endl;
             }
             net_type = std::string(argv[i]);

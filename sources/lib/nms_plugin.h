@@ -10,28 +10,28 @@ namespace darknet {
 
     class NMSPlugin : public IPluginV2Ext {
     private:
-        float nms_thresh;
-        int detections_per_im;
+        float nms_thresh_;
+        int detections_per_im_;
 
-        size_t count;
+        size_t count_;
 
     protected:
         void deserialize(void const *data, size_t length) {
             const char *d = static_cast<const char *>(data);
-            read(d, nms_thresh);
-            read(d, detections_per_im);
-            read(d, count);
+            read(d, nms_thresh_);
+            read(d, detections_per_im_);
+            read(d, count_);
         }
 
         void serialize(void *buffer) const override {
             char *d = static_cast<char *>(buffer);
-            write(d, nms_thresh);
-            write(d, detections_per_im);
-            write(d, count);
+            write(d, nms_thresh_);
+            write(d, detections_per_im_);
+            write(d, count_);
         }
 
         size_t getSerializationSize() const override {
-            return sizeof(nms_thresh) + sizeof(detections_per_im) + sizeof(count);
+            return sizeof(nms_thresh_) + sizeof(detections_per_im_) + sizeof(count_);
         }
 
     public:
@@ -40,10 +40,10 @@ namespace darknet {
         }
 
         NMSPlugin(float nms_thresh, int dections_per_im) :
-                nms_thresh(nms_thresh), detections_per_im(dections_per_im), count(0) {}
+                nms_thresh_(nms_thresh), detections_per_im_(dections_per_im), count_(0) {}
 
         NMSPlugin(float nms_thresh, int dections_per_im, size_t count) :
-                nms_thresh(nms_thresh), detections_per_im(dections_per_im), count(count) {}
+                nms_thresh_(nms_thresh), detections_per_im_(dections_per_im), count_(count) {}
 
         const char *getPluginType() const override {
             return "NMS";
@@ -61,7 +61,7 @@ namespace darknet {
                                  const Dims *inputs, int nbInputDims) override {
             assert(nbInputDims == 3);
             assert(index < this->getNbOutputs());
-            return Dims3(detections_per_im * (index == 1 ? 4 : 1), 1, 1);
+            return Dims3(detections_per_im_ * (index == 1 ? 4 : 1), 1, 1);
         }
 
         bool supportsFormat(DataType type, PluginFormat format) const override {
@@ -73,7 +73,8 @@ namespace darknet {
         void terminate() override {}
 
         size_t getWorkspaceSize(int maxBatchSize) const override {
-            return cuda_nms(maxBatchSize, nullptr, nullptr, count, detections_per_im, nms_thresh, nullptr, 0, nullptr);
+            return cuda_nms(maxBatchSize, nullptr, nullptr, count_, detections_per_im_, nms_thresh_, nullptr, 0,
+                            nullptr);
         }
 
         int enqueue(int batchSize,
@@ -95,9 +96,9 @@ namespace darknet {
                     batchSize,
                     inputs,
                     outputs,
-                    count,
-                    detections_per_im,
-                    nms_thresh,
+                    count_,
+                    detections_per_im_,
+                    nms_thresh_,
                     workspace,
                     this->getWorkspaceSize(batchSize),
                     stream
@@ -137,11 +138,11 @@ namespace darknet {
             assert(nbInputs == 3);
             assert(inputDims[0].d[0] == inputDims[2].d[0]);
             assert(inputDims[1].d[0] == inputDims[2].d[0] * 4);
-            count = inputDims[0].d[0];
+            count_ = inputDims[0].d[0];
         }
 
         IPluginV2Ext *clone() const override {
-            return new NMSPlugin(nms_thresh, detections_per_im, count);
+            return new NMSPlugin(nms_thresh_, detections_per_im_, count_);
         }
 
     };

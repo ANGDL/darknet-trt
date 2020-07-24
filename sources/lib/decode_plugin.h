@@ -10,59 +10,59 @@ namespace darknet {
 
     class DecodePlugin : public nvinfer1::IPluginV2Ext {
     private:
-        float score_thresh;
-        std::vector<float> anchors;
+        float score_thresh_;
+        std::vector<float> anchors_;
 
-        float stride;
+        float stride_;
 
-        size_t grid_size;
-        size_t num_anchors;
-        size_t num_classes;
+        size_t grid_size_;
+        size_t num_anchors_;
+        size_t num_classes_;
 
     protected:
         void deserialize(void const *data, size_t length) {
             const char *d = static_cast<const char *>(data);
-            read(d, score_thresh);
+            read(d, score_thresh_);
             size_t anchors_size;
             read(d, anchors_size);
             while (anchors_size--) {
                 float val;
                 read(d, val);
-                anchors.push_back(val);
+                anchors_.push_back(val);
             }
 
-            read(d, stride);
+            read(d, stride_);
 
-            read(d, grid_size);
-            read(d, num_anchors);
-            read(d, num_classes);
+            read(d, grid_size_);
+            read(d, num_anchors_);
+            read(d, num_classes_);
         }
 
         void serialize(void *buffer) const override {
             char *d = static_cast<char *> (buffer);
-            write(d, score_thresh);
-            write(d, anchors.size());
-            for (auto &val : anchors) {
+            write(d, score_thresh_);
+            write(d, anchors_.size());
+            for (auto &val : anchors_) {
                 write(d, val);
             }
 
-            write(d, stride);
-            write(d, grid_size);
-            write(d, num_anchors);
-            write(d, num_classes);
+            write(d, stride_);
+            write(d, grid_size_);
+            write(d, num_anchors_);
+            write(d, num_classes_);
         }
 
         size_t getSerializationSize() const override {
-            return sizeof(score_thresh) + sizeof(size_t) +
-                   sizeof(float) * anchors.size() + sizeof(stride) + sizeof(grid_size) +
-                   sizeof(num_anchors) + sizeof(num_classes);
+            return sizeof(score_thresh_) + sizeof(size_t) +
+                   sizeof(float) * anchors_.size() + sizeof(stride_) + sizeof(grid_size_) +
+                   sizeof(num_anchors_) + sizeof(num_classes_);
         }
 
     public:
         DecodePlugin(float score_thresh, std::vector<float> const &anchors,
-                                            int stride, size_t grid_size, size_t num_anchors, size_t num_classes) :
-                score_thresh(score_thresh), anchors(anchors),
-                stride(stride), grid_size(grid_size), num_anchors(num_anchors), num_classes(num_classes) {
+                     int stride, size_t grid_size, size_t num_anchors, size_t num_classes) :
+                score_thresh_(score_thresh), anchors_(anchors),
+                stride_(stride), grid_size_(grid_size), num_anchors_(num_anchors), num_classes_(num_classes) {
 
         }
 
@@ -86,7 +86,7 @@ namespace darknet {
                                  const Dims *inputs, int nbInputDims) override {
             assert(nbInputDims == 1);
             assert(index < this->getNbOutputs());
-            return Dims3(num_anchors * grid_size * grid_size * (index == 1 ? 4 : 1), 1, 1);
+            return Dims3(num_anchors_ * grid_size_ * grid_size_ * (index == 1 ? 4 : 1), 1, 1);
         }
 
         bool supportsFormat(DataType type, PluginFormat format) const override {
@@ -102,12 +102,12 @@ namespace darknet {
                     nullptr,
                     nullptr,
                     maxBatchSize,
-                    stride,
-                    grid_size,
-                    num_anchors,
-                    num_classes,
-                    anchors,
-                    score_thresh,
+                    stride_,
+                    grid_size_,
+                    num_anchors_,
+                    num_classes_,
+                    anchors_,
+                    score_thresh_,
                     nullptr,
                     0,
                     nullptr
@@ -133,12 +133,12 @@ namespace darknet {
                     inputs,
                     outputs,
                     batchSize,
-                    stride,
-                    grid_size,
-                    num_anchors,
-                    num_classes,
-                    anchors,
-                    score_thresh,
+                    stride_,
+                    grid_size_,
+                    num_anchors_,
+                    num_classes_,
+                    anchors_,
+                    score_thresh_,
                     workspace,
                     this->getWorkspaceSize(batchSize),
                     stream
@@ -178,13 +178,13 @@ namespace darknet {
             assert(nbInputs == 1);
             assert(nbOutputs == 3);
             assert(inputDims != nullptr && inputDims[0].nbDims == 3);
-            assert(num_anchors * (5 + num_classes) == inputDims[0].d[0]);
-            assert(grid_size == inputDims[0].d[1]);
-            assert(grid_size == inputDims[0].d[2]);
+            assert(num_anchors_ * (5 + num_classes_) == inputDims[0].d[0]);
+            assert(grid_size_ == inputDims[0].d[1]);
+            assert(grid_size_ == inputDims[0].d[2]);
         }
 
         IPluginV2Ext *clone() const override {
-            return new DecodePlugin(score_thresh, anchors, stride, grid_size, num_anchors, num_classes);
+            return new DecodePlugin(score_thresh_, anchors_, stride_, grid_size_, num_anchors_, num_classes_);
         }
     };
 

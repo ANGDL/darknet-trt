@@ -9,16 +9,16 @@
 
 
 darknet::Yolo::Yolo(NetConfig *config, uint batch_size) :
-        config(config),
-        batch_size(batch_size),
-        input_index(-1),
-        engine(nullptr),
-        context(nullptr),
-        cuda_stream(nullptr),
-        bindings(0),
-        trt_output_buffers(0),
-        tiny_maxpool_padding_formula(new YoloTinyMaxpoolPaddingFormula()),
-        is_init(false) {
+        config_(config),
+        batch_size_(batch_size),
+        input_index_(-1),
+        engine_(nullptr),
+        context_(nullptr),
+        cuda_stream_(nullptr),
+        bindings_(0),
+        trt_output_buffers_(0),
+        tiny_maxpool_padding_formula_(new YoloTinyMaxpoolPaddingFormula()),
+        is_init_(false) {
     std::string network_type = config->get_network_type();
     assert(network_type == "yolov3" || network_type == "yolov3-tiny");
 
@@ -31,9 +31,9 @@ darknet::Yolo::Yolo(NetConfig *config, uint batch_size) :
         std::cout << "Creating a new TensorRT Engine" << std::endl;
 
         if (precision == "kFLOAT") {
-            is_init = build(nvinfer1::DataType::kFLOAT, planfile);
+            is_init_ = build(nvinfer1::DataType::kFLOAT, planfile);
         } else if (precision == "kHALF") {
-            is_init = build(nvinfer1::DataType::kHALF, planfile);
+            is_init_ = build(nvinfer1::DataType::kHALF, planfile);
         } else if (precision == "KINT8") {
             //TODO
         } else {
@@ -41,69 +41,69 @@ darknet::Yolo::Yolo(NetConfig *config, uint batch_size) :
         }
     }
 
-    if (!is_init && (!file_exits(planfile))) {
+    if (!is_init_ && (!file_exits(planfile))) {
         return;
     }
-    engine = load_trt_engine(planfile,logger);
-    if (nullptr == engine) {
-        is_init = false;
+    engine_ = load_trt_engine(planfile, logger_);
+    if (nullptr == engine_) {
+        is_init_ = false;
         return;
     }
-    context = engine->createExecutionContext();
-    if (nullptr == context) {
-        is_init = false;
-        return;
-    }
-
-    input_index = engine->getBindingIndex(config->INPUT_BLOB_NAME.c_str());
-    if (input_index == -1) {
-        is_init = false;
+    context_ = engine_->createExecutionContext();
+    if (nullptr == context_) {
+        is_init_ = false;
         return;
     }
 
-    NV_CUDA_CHECK(cudaStreamCreate(&cuda_stream));
-    if (cuda_stream == nullptr) {
-        is_init = false;
+    input_index_ = engine_->getBindingIndex(config->INPUT_BLOB_NAME.c_str());
+    if (input_index_ == -1) {
+        is_init_ = false;
         return;
     }
 
-    auto n_binding = engine->getNbBindings();
-    bindings.resize(n_binding, nullptr);
-    trt_output_buffers.resize(bindings.size() - 1, nullptr); // 减去一个输入
+    NV_CUDA_CHECK(cudaStreamCreate(&cuda_stream_));
+    if (cuda_stream_ == nullptr) {
+        is_init_ = false;
+        return;
+    }
+
+    auto n_binding = engine_->getNbBindings();
+    bindings_.resize(n_binding, nullptr);
+    trt_output_buffers_.resize(bindings_.size() - 1, nullptr); // 减去一个输入
 }
 
 
 darknet::Yolo::~Yolo() {
-    if (cuda_stream != nullptr) NV_CUDA_CHECK(cudaStreamDestroy(cuda_stream));
-    for (auto buffer : trt_output_buffers) NV_CUDA_CHECK(cudaFreeHost(buffer));
-    for (auto binding : bindings) NV_CUDA_CHECK(cudaFree(binding));
-    if (context != nullptr) {
-        context->destroy();
-        context = nullptr;
+    if (cuda_stream_ != nullptr) NV_CUDA_CHECK(cudaStreamDestroy(cuda_stream_));
+    for (auto buffer : trt_output_buffers_) NV_CUDA_CHECK(cudaFreeHost(buffer));
+    for (auto binding : bindings_) NV_CUDA_CHECK(cudaFree(binding));
+    if (context_ != nullptr) {
+        context_->destroy();
+        context_ = nullptr;
     }
-    if (engine != nullptr) {
-        engine->destroy();
-        engine = nullptr;
+    if (engine_ != nullptr) {
+        engine_->destroy();
+        engine_ = nullptr;
     }
 }
 
 bool darknet::Yolo::good() const {
-    return is_init;
+    return is_init_;
 }
 
 bool darknet::Yolo::build(const nvinfer1::DataType data_type,
-                          const std::string planfile_path/*, Int8EntropyCalibrator* calibrator*/) {
-    assert(file_exits(config->WEIGHTS_FLIE));
+                          const std::string& planfile_path/*, Int8EntropyCalibrator* calibrator*/) {
+    assert(file_exits(config_->WEIGHTS_FLIE));
     // 解析网络结构
-    const darknet::Blocks &blocks = config->blocks;
+    const darknet::Blocks &blocks = config_->blocks;
     // 读取训练的权重
-    std::vector<float> weights = load_weights(config->WEIGHTS_FLIE, config->get_network_type());
+    std::vector<float> weights = load_weights(config_->WEIGHTS_FLIE, config_->get_network_type());
     //
     std::vector<nvinfer1::Weights> trt_weights;
     int weight_ptr = 0;
-    int channels = config->INPUT_C;
+    int channels = config_->INPUT_C;
     // 创建builder
-    auto builder = unique_ptr_infer<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(logger));
+    auto builder = unique_ptr_infer<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(logger_));
     // 创建builder config
     auto builder_config = unique_ptr_infer<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     // 创建network
@@ -117,12 +117,12 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
 
     // 添加nput层
     nvinfer1::ITensor *data = network->addInput(
-            config->INPUT_BLOB_NAME.c_str(),
+            config_->INPUT_BLOB_NAME.c_str(),
             nvinfer1::DataType::kFLOAT,
             nvinfer1::DimsCHW{
                     channels,
-                    static_cast<int>(config->INPUT_H),
-                    static_cast<int>(config->INPUT_W)}
+                    static_cast<int>(config_->INPUT_H),
+                    static_cast<int>(config_->INPUT_W)}
     );
     if (nullptr == data) {
         std::cout << "add input layer error " << __func__ << ": " << __LINE__ << std::endl;
@@ -131,14 +131,16 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
 
     // 数据预处理
     // 归一化
-    float *div_wights = new float[config->INPUT_SIZE];
-    std::fill(div_wights, div_wights + config->INPUT_SIZE, 255.0);
+    auto *div_wights = new float[config_->INPUT_SIZE];
+    std::fill(div_wights, div_wights + config_->INPUT_SIZE, 255.0);
     nvinfer1::Dims div_dim{
             3,
-            {static_cast<int>(config->INPUT_C), static_cast<int>(config->INPUT_H), static_cast<int>(config->INPUT_W)},
+            {static_cast<int>(config_->INPUT_C), static_cast<int>(config_->INPUT_H),
+             static_cast<int>(config_->INPUT_W)},
             {nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kSPATIAL}
     };
-    nvinfer1::Weights div_weights_trt{nvinfer1::DataType::kFLOAT, div_wights, static_cast<int64_t>(config->INPUT_SIZE)};
+    nvinfer1::Weights div_weights_trt{nvinfer1::DataType::kFLOAT, div_wights,
+                                      static_cast<int64_t>(config_->INPUT_SIZE)};
     trt_weights.push_back(div_weights_trt);
 
     nvinfer1::IConstantLayer *div_layer = network->addConstant(div_dim, div_weights_trt);
@@ -162,7 +164,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
     std::vector<nvinfer1::ITensor *> yolo_tensors;
 
     //// Set the output dimensions formula for pooling layers
-    network->setPoolingOutputDimensionsFormula(tiny_maxpool_padding_formula.get());
+    network->setPoolingOutputDimensionsFormula(tiny_maxpool_padding_formula_.get());
 
     // 构建网络
     for (int i = 0; i < blocks.size(); ++i) {
@@ -232,25 +234,22 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             previous->setName(layer_name.c_str());
         } else if (b_type == "route") {
             size_t found = block.at("layers").find(",");
-            if (found != std::string::npos)
-            {
+            if (found != std::string::npos) {
                 int idx1 = std::stoi(trim(block.at("layers").substr(0, found)));
                 int idx2 = std::stoi(trim(block.at("layers").substr(found + 1)));
-                if (idx1 < 0)
-                {
+                if (idx1 < 0) {
                     idx1 = output_tensors.size() + idx1;
                 }
-                if (idx2 < 0)
-                {
+                if (idx2 < 0) {
                     idx2 = output_tensors.size() + idx2;
                 }
                 assert(idx1 < static_cast<int>(output_tensors.size()) && idx1 >= 0);
                 assert(idx2 < static_cast<int>(output_tensors.size()) && idx2 >= 0);
-                nvinfer1::ITensor** concatInputs
-                        = reinterpret_cast<nvinfer1::ITensor**>(malloc(sizeof(nvinfer1::ITensor*) * 2));
+                auto **concatInputs
+                        = reinterpret_cast<nvinfer1::ITensor **>(malloc(sizeof(nvinfer1::ITensor *) * 2));
                 concatInputs[0] = output_tensors[idx1];
                 concatInputs[1] = output_tensors[idx2];
-                nvinfer1::IConcatenationLayer* concat
+                nvinfer1::IConcatenationLayer *concat
                         = network->addConcatenation(concatInputs, 2);
                 assert(concat != nullptr);
                 std::string concatLayerName = "route_" + std::to_string(i - 1);
@@ -266,12 +265,9 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
 
                 print_layer_info(i, concat->getName(), previous->getDimensions(),
                                  concat->getOutput(0)->getDimensions(), weight_ptr);
-            }
-            else
-            {
+            } else {
                 int idx = std::stoi(trim(block.at("layers")));
-                if (idx < 0)
-                {
+                if (idx < 0) {
                     idx = output_tensors.size() + idx;
                 }
                 assert(idx < static_cast<int>(output_tensors.size()) && idx >= 0);
@@ -290,7 +286,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             unsigned int grid_size = grid_dim.d[1];
 
 //            auto yolo_plugin = new YoloLayer(config->get_bboxes(), config->OUTPUT_CLASSES, grid_size);
-            auto yolo_plugin = YoloLayerPlugin(config->get_bboxes(), config->OUTPUT_CLASSES, grid_size);
+            auto yolo_plugin = YoloLayerPlugin(config_->get_bboxes(), config_->OUTPUT_CLASSES, grid_size);
             nvinfer1::ILayer *yolo_layer = network->addPluginV2(&previous, 1, yolo_plugin);
 
             std::string layer_name = "yolo_" + to_string(i);
@@ -334,7 +330,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
         } else if (b_type == "maxpool") {
             // 设置same padding
             if (block.at("size") == "2" && block.at("stride") == "1") {
-                tiny_maxpool_padding_formula->add_same_padding_layer("maxpool_" + std::to_string(i));
+                tiny_maxpool_padding_formula_->add_same_padding_layer("maxpool_" + std::to_string(i));
             }
             nvinfer1::ILayer *pooling_layer = add_maxpool(i, block, previous, network.get());
             if (nullptr == pooling_layer) {
@@ -366,7 +362,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
     }
 
     // 添加decode plugin
-    if (config->use_cuda_nms) {
+    if (config_->use_cuda_nms_) {
         for (auto &t : yolo_tensors) {
             network->unmarkOutput(*t);
         }
@@ -374,8 +370,8 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
         std::vector<ILayer *> decode_layers;
         std::vector<float> anchors;
 
-        if (config->get_network_type() == "yolov3-tiny") {
-            auto cfg = dynamic_cast<YoloV3TinyCfg *>(config.get());
+        if (config_->get_network_type() == "yolov3-tiny") {
+            auto cfg = dynamic_cast<YoloV3TinyCfg *>(config_.get());
 
             // yolo_layer_1
             for (size_t i = 0; i < cfg->get_bboxes(); i++) {
@@ -384,10 +380,10 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             }
             nvinfer1::ILayer *decode_layer_1 = add_decode(
                     yolo_tensors[0], network.get(), "decode_1",
-                    cfg->score_thresh, anchors,
+                    cfg->score_thresh_, anchors,
                     cfg->STRIDE_1,
                     cfg->GRID_SIZE_1,
-                    cfg->get_bboxes(),
+                    static_cast<int>(cfg->get_bboxes()),
                     cfg->OUTPUT_CLASSES
             );
 
@@ -399,17 +395,17 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             }
             nvinfer1::ILayer *decode_layer_2 = add_decode(
                     yolo_tensors[1], network.get(), "decode_2",
-                    cfg->score_thresh, anchors,
+                    cfg->score_thresh_, anchors,
                     cfg->STRIDE_2,
                     cfg->GRID_SIZE_2,
-                    cfg->get_bboxes(),
+                    static_cast<int>(cfg->get_bboxes()),
                     cfg->OUTPUT_CLASSES
             );
 
             decode_layers.push_back(decode_layer_1);
             decode_layers.push_back(decode_layer_2);
-        } else if (config->get_network_type() == "yolov3") {
-            auto cfg = dynamic_cast<YoloV3Cfg *>(config.get());
+        } else if (config_->get_network_type() == "yolov3") {
+            auto cfg = dynamic_cast<YoloV3Cfg *>(config_.get());
             // yolo_layer_1
             for (size_t i = 0; i < cfg->get_bboxes(); i++) {
                 anchors.push_back(cfg->ANCHORS[cfg->MASK_1[i] * 2]);
@@ -417,10 +413,10 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             }
             nvinfer1::ILayer *decode_layer_1 = add_decode(
                     yolo_tensors[0], network.get(), "decode_1",
-                    cfg->score_thresh, anchors,
+                    cfg->score_thresh_, anchors,
                     cfg->STRIDE_1,
                     cfg->GRID_SIZE_1,
-                    cfg->get_bboxes(),
+                    static_cast<int>(cfg->get_bboxes()),
                     cfg->OUTPUT_CLASSES
             );
 
@@ -432,10 +428,10 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             }
             nvinfer1::ILayer *decode_layer_2 = add_decode(
                     yolo_tensors[1], network.get(), "decode_2",
-                    cfg->score_thresh, anchors,
+                    cfg->score_thresh_, anchors,
                     cfg->STRIDE_2,
                     cfg->GRID_SIZE_2,
-                    cfg->get_bboxes(),
+                    static_cast<int>(cfg->get_bboxes()),
                     cfg->OUTPUT_CLASSES
             );
 
@@ -447,10 +443,10 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             }
             nvinfer1::ILayer *decode_layer_3 = add_decode(
                     yolo_tensors[2], network.get(), "decode_3",
-                    cfg->score_thresh, anchors,
+                    cfg->score_thresh_, anchors,
                     cfg->STRIDE_3,
                     cfg->GRID_SIZE_3,
-                    cfg->get_bboxes(),
+                    static_cast<int>(cfg->get_bboxes()),
                     cfg->OUTPUT_CLASSES
             );
 
@@ -479,7 +475,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             concat.push_back(layer->getOutput(0));
         }
         // add nms plugin
-        auto nms_plugin = NMSPlugin(config->nms_thresh, config->max_detection);
+        auto nms_plugin = NMSPlugin(config_->nms_thresh_, config_->max_detection_);
         auto nms_layer = network->addPluginV2(concat.data(), concat.size(), nms_plugin);
 
         vector<string> names = {"scores", "boxes", "classes"};
@@ -493,23 +489,19 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
     builder_config->setMaxWorkspaceSize(1 << 26);
     builder_config->setFlag(BuilderFlag::kGPU_FALLBACK);
     builder_config->setFlag(BuilderFlag::kSTRICT_TYPES);
-    if (data_type == nvinfer1::DataType::kHALF)
-    {
+    if (data_type == nvinfer1::DataType::kHALF) {
         builder_config->setFlag(BuilderFlag::kFP16);
     }
-    if (data_type == nvinfer1::DataType::kINT8)
-    {
+    if (data_type == nvinfer1::DataType::kINT8) {
         builder_config->setFlag(BuilderFlag::kINT8);
     }
 
     int nbLayers = network->getNbLayers();
     int layersOnDLA = 0;
     std::cout << "Total number of layers: " << nbLayers << std::endl;
-    for (uint i = 0; i < nbLayers; i++)
-    {
-        nvinfer1::ILayer* curLayer = network->getLayer(i);
-        if (builder->canRunOnDLA(curLayer))
-        {
+    for (uint i = 0; i < nbLayers; i++) {
+        nvinfer1::ILayer *curLayer = network->getLayer(i);
+        if (builder->canRunOnDLA(curLayer)) {
             builder->setDeviceType(curLayer, nvinfer1::DeviceType::kDLA);
             layersOnDLA++;
             std::cout << "Set layer " << curLayer->getName() << " to run on DLA" << std::endl;
@@ -518,15 +510,15 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
     std::cout << "Total number of layers on DLA: " << layersOnDLA << std::endl;
 
     // 创建 engine
-    auto cuda_engine = unique_ptr_infer<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *builder_config));
+    auto cuda_engine = unique_ptr_infer<nvinfer1::ICudaEngine>(
+            builder->buildEngineWithConfig(*network, *builder_config));
     if (nullptr == cuda_engine) {
         std::cout << "Build the TensorRT Engine failed !" << __func__ << ": " << __LINE__ << std::endl;
         return false;
     }
 
     // 保存engine
-//    save_engine(cuda_engine.get(), planfile_path);
-    write_planfile_to_disk(cuda_engine.get(), planfile_path);
+    save_engine(cuda_engine.get(), planfile_path);
 
     std::cout << "Serialized plan file cached at location : " << planfile_path << std::endl;
 
@@ -755,20 +747,20 @@ darknet::Yolo::add_bn(int layer_idx, int filters, std::vector<float> &bn_biases,
 }
 
 nvinfer1::ILayer *
-darknet::Yolo::add_leakyReLU(int layer_idx, nvinfer1::ITensor *input, nvinfer1::INetworkDefinition *network){
+darknet::Yolo::add_leakyReLU(int layer_idx, nvinfer1::ITensor *input, nvinfer1::INetworkDefinition *network) {
 
-    float* data = new float[1];
+    float *data = new float[1];
     data[0] = 0.1;
-    nvinfer1::Weights slope{nvinfer1::DataType::kFLOAT, (void *)data, 1};
+    nvinfer1::Weights slope{nvinfer1::DataType::kFLOAT, (void *) data, 1};
 
     Dims slopes_dims{
-        input->getDimensions().nbDims,
-        {1, 1, 1},
-        {DimensionType::kCHANNEL, DimensionType::kSPATIAL, DimensionType::kSPATIAL}};
+            input->getDimensions().nbDims,
+            {1, 1, 1},
+            {DimensionType::kCHANNEL, DimensionType::kSPATIAL, DimensionType::kSPATIAL}};
 
     auto constLayer = network->addConstant(slopes_dims, slope);
 
-    nvinfer1::ILayer* leaky_relu = network->addParametricReLU(*input, *constLayer->getOutput(0));
+    nvinfer1::ILayer *leaky_relu = network->addParametricReLU(*input, *constLayer->getOutput(0));
     return leaky_relu;
 }
 

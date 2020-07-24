@@ -73,44 +73,16 @@ int get_num_channels(nvinfer1::ITensor *t) {
     assert(d.nbDims >= 3);
     if (d.nbDims == 3)
         return d.d[0];
-    else if (d.nbDims == 4){
+    else if (d.nbDims == 4) {
         return d.d[1];
     }
 }
 
-
 bool save_engine(const nvinfer1::ICudaEngine *engine, const std::string &file_name) {
-    std::ofstream engineFile(file_name, std::ios::binary);
-    if (!engineFile) {
-        std::cout << "Cannot open engine file: " << file_name << std::endl;
-        return false;
-    }
-
-    auto serialized_engine = std::unique_ptr<nvinfer1::IHostMemory, std::function<void(nvinfer1::IHostMemory *)>>(
-            engine->serialize(),
-            [](nvinfer1::IHostMemory *p) {
-                p->destroy();
-            });
-
-    if (serialized_engine == nullptr) {
-        std::cout << "Engine serialization failed" << std::endl;
-        return false;
-    }
-
-    engineFile.write(static_cast<char *>(serialized_engine->data()), serialized_engine->size());
-
-
-    std::cout << "plan file size: " << serialized_engine->size() << std::endl;
-
-    return !engineFile.fail();
-}
-
-bool write_planfile_to_disk(const nvinfer1::ICudaEngine *engine, const std::string &file_name)
-{
     std::cout << "Serializing the TensorRT Engine..." << std::endl;
     assert(engine && "Invalid TensorRT Engine");
     auto model_stream = engine->serialize();
-    if (!model_stream){
+    if (!model_stream) {
         std::cout << "Engine serialization failed" << std::endl;
         return false;
     }
@@ -119,7 +91,7 @@ bool write_planfile_to_disk(const nvinfer1::ICudaEngine *engine, const std::stri
     // write data to output file
     std::stringstream gie_model_stream;
     gie_model_stream.seekg(0, std::stringstream::beg);
-    gie_model_stream.write(static_cast<const char*>(model_stream->data()), model_stream->size());
+    gie_model_stream.write(static_cast<const char *>(model_stream->data()), model_stream->size());
     std::ofstream outFile;
     outFile.open(file_name);
     outFile << gie_model_stream.rdbuf();
@@ -127,52 +99,6 @@ bool write_planfile_to_disk(const nvinfer1::ICudaEngine *engine, const std::stri
 
     std::cout << "Serialized plan file cached at location : " << file_name << std::endl;
     return true;
-}
-
-nvinfer1::ICudaEngine *
-load_trt_engine2(const std::string plan_file, nvinfer1::ILogger &logger) {
-    std::cout << "loading trt engine form " << plan_file << std::endl;
-
-    assert(file_exits(plan_file));
-
-    std::ifstream engine_file(plan_file, std::ios::binary);
-    if (!engine_file) {
-        std::cout << "Error opening engine file: " << plan_file << std::endl;
-        return nullptr;
-    }
-
-    engine_file.seekg(0, engine_file.end);
-    long int fsize = engine_file.tellg();
-    engine_file.seekg(0, engine_file.beg);
-
-    std::vector<char> engine_data(fsize);
-    engine_file.read(engine_data.data(), fsize);
-    if (!engine_file) {
-        std::cout << "Error loading engine file: " << plan_file << std::endl;
-        return nullptr;
-    }
-
-    auto runtime = std::unique_ptr<nvinfer1::IRuntime, std::function<void(nvinfer1::IRuntime *)> >(
-            nvinfer1::createInferRuntime(logger),
-            [](nvinfer1::IRuntime *t) {
-                t->destroy();
-            }
-    );
-
-    if (!runtime) {
-        std::cout << "create Infer Runtime failed !" << std::endl;
-        return nullptr;
-    }
-
-    nvinfer1::ICudaEngine *engine = runtime->deserializeCudaEngine(engine_data.data(), fsize);
-    if (!engine) {
-        std::cout << "create Cuda Engine failed !" << std::endl;
-        return nullptr;
-    }
-
-    std::cout << "Loading engine file Complete!" << std::endl;
-
-    return engine;
 }
 
 nvinfer1::ICudaEngine *
@@ -191,11 +117,11 @@ load_trt_engine(const std::string plan_file, nvinfer1::ILogger &logger) {
     trt_model_stream.seekg(0, std::ios::end);
     const int model_size = trt_model_stream.tellg();
     trt_model_stream.seekg(0, std::ios::beg);
-    void* model_mem = malloc(model_size);
-    trt_model_stream.read((char*) model_mem, model_size);
+    void *model_mem = malloc(model_size);
+    trt_model_stream.read((char *) model_mem, model_size);
 
-    nvinfer1::IRuntime* runtime = nvinfer1::createInferRuntime(logger);
-    nvinfer1::ICudaEngine* engine
+    nvinfer1::IRuntime *runtime = nvinfer1::createInferRuntime(logger);
+    nvinfer1::ICudaEngine *engine
             = runtime->deserializeCudaEngine(model_mem, model_size);
     free(model_mem);
     runtime->destroy();
@@ -308,9 +234,8 @@ Tensor2BBoxes::operator()(const float *detections, const std::vector<int> mask, 
                     //	continue;
                     binfo.box = convert_bbox(bx, by, bw, bh, stride, input_w, input_h);
 
-                    if ((binfo.box.x1 > binfo.box.x2) || (binfo.box.y1 > binfo.box.y2))
-                    {
-                       continue;
+                    if ((binfo.box.x1 > binfo.box.x2) || (binfo.box.y1 > binfo.box.y2)) {
+                        continue;
                     }
 
                     binfo.box.x1 -= dx;
@@ -337,7 +262,7 @@ Tensor2BBoxes::operator()(const float *detections, const std::vector<int> mask, 
 
 BBox
 Tensor2BBoxes::convert_bbox(const float &bx, const float &by, const float &bw, const float &bh,
-        const int &stride, const uint& net_w, const uint& net_h) {
+                            const int &stride, const uint &net_w, const uint &net_h) {
     BBox b;
 
     float x = bx * stride;
@@ -366,14 +291,13 @@ std::vector<BBoxInfo> nms(std::vector<BBoxInfo> &binfo, float nms_thresh) {
     }
 
     auto overlap1D = [](float x1min, float x1max, float x2min, float x2max) -> float {
-        if (x1min > x2min)
-        {
+        if (x1min > x2min) {
             std::swap(x1min, x2min);
             std::swap(x1max, x2max);
         }
         return x1max < x2min ? 0 : std::min(x1max, x2max) - x2min;
     };
-    auto computeIoU = [&overlap1D](BBox& bbox1, BBox& bbox2) -> float {
+    auto computeIoU = [&overlap1D](BBox &bbox1, BBox &bbox2) -> float {
         float overlapX = overlap1D(bbox1.x1, bbox1.x2, bbox2.x1, bbox2.x2);
         float overlapY = overlap1D(bbox1.y1, bbox1.y2, bbox2.y1, bbox2.y2);
         float area1 = (bbox1.x2 - bbox1.x1) * (bbox1.y2 - bbox1.y1);
@@ -384,19 +308,15 @@ std::vector<BBoxInfo> nms(std::vector<BBoxInfo> &binfo, float nms_thresh) {
     };
 
     std::stable_sort(binfo.begin(), binfo.end(),
-                     [](const BBoxInfo& b1, const BBoxInfo& b2) { return b1.prob > b2.prob; });
+                     [](const BBoxInfo &b1, const BBoxInfo &b2) { return b1.prob > b2.prob; });
     std::vector<BBoxInfo> out;
-    for (auto& i : binfo)
-    {
+    for (auto &i : binfo) {
         bool keep = true;
-        for (auto& j : out)
-        {
-            if (keep)
-            {
+        for (auto &j : out) {
+            if (keep) {
                 float overlap = computeIoU(i.box, j.box);
                 keep = overlap <= nms_thresh;
-            }
-            else
+            } else
                 break;
         }
         if (keep) out.push_back(i);
