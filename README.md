@@ -12,8 +12,6 @@
 - [x] NmsPlugin
 
 ## TODO
-
-- [ ] 半精度推理结果有问题
 - [ ] INT8
 
 ### reference:
