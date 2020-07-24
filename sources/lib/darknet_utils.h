@@ -42,7 +42,8 @@ struct Tensor2BBoxes {
                                      const unsigned int stride, const float confidence_thresh, const int raw_w,
                                      const int raw_h);
 
-    BBox convert_bbox(const float &bx, const float &by, const float &bw, const float &bh, const int &stride);
+    BBox convert_bbox(const float &bx, const float &by, const float &bw, const float &bh,
+                      const int &stride, const uint& net_w, const uint& net_h) ;
 
     unsigned int n_classes;
     unsigned int n_bboxes;
@@ -64,6 +65,7 @@ std::vector<float> load_weights(const std::string weights_path, const std::strin
 int get_num_channels(nvinfer1::ITensor *t);
 
 bool save_engine(const nvinfer1::ICudaEngine *engine, const std::string &file_name);
+bool write_planfile_to_disk(const nvinfer1::ICudaEngine *engine, const std::string &file_name);
 
 nvinfer1::ICudaEngine *
 load_trt_engine(const std::string plan_file, nvinfer1::ILogger &logger);

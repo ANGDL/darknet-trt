@@ -112,13 +112,13 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
     if ((data_type == nvinfer1::DataType::kINT8 && !builder->platformHasFastInt8())
         || (data_type == nvinfer1::DataType::kHALF && !builder->platformHasFastFp16())) {
         std::cout << "Platform doesn't support this precision." << __func__ << ": " << __LINE__ << std::endl;
-        return false;
+//        return false;
     }
 
-    // 添加输出层
+    // 添加nput层
     nvinfer1::ITensor *data = network->addInput(
             config->INPUT_BLOB_NAME.c_str(),
-            data_type,
+            nvinfer1::DataType::kFLOAT,
             nvinfer1::DimsCHW{
                     channels,
                     static_cast<int>(config->INPUT_H),
@@ -201,12 +201,14 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             assert(block.at("activation") == "linear");
 
             int from = stoi(block.at("from"));
-            assert(output_tensors.size() + from >= 0);
-            assert(output_tensors.size() - 1 >= 0);
+
+            assert((i - 2 >= 0) && (i - 2 < output_tensors.size()));
+            assert((i + from - 1 >= 0) && (i + from - 1 < output_tensors.size()));
+            assert(i + from - 1 < i - 2);
 
             nvinfer1::IElementWiseLayer *shortcut_layer = network->addElementWise(
-                    **(output_tensors.end() - 1),
-                    **(output_tensors.end() + from),
+                    *(output_tensors[i - 2]),
+                    *(output_tensors[i + from - 1]),
                     nvinfer1::ElementWiseOperation::kSUM
             );
             std::string layer_name = "shortcut_" + to_string(i);
@@ -229,62 +231,58 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             previous = shortcut_out;
             previous->setName(layer_name.c_str());
         } else if (b_type == "route") {
-            assert(block.find("layers") != block.end());
-            vector<string> layers_s = split(trim(block.at("layers")), ',');
-            if (layers_s.size() == 1) {
-                int idx = stoi(layers_s[0]);
-                idx = idx < 0 ? idx + output_tensors.size() : idx;
-                assert(idx < output_tensors.size() && idx >= 0);
+            size_t found = block.at("layers").find(",");
+            if (found != std::string::npos)
+            {
+                int idx1 = std::stoi(trim(block.at("layers").substr(0, found)));
+                int idx2 = std::stoi(trim(block.at("layers").substr(found + 1)));
+                if (idx1 < 0)
+                {
+                    idx1 = output_tensors.size() + idx1;
+                }
+                if (idx2 < 0)
+                {
+                    idx2 = output_tensors.size() + idx2;
+                }
+                assert(idx1 < static_cast<int>(output_tensors.size()) && idx1 >= 0);
+                assert(idx2 < static_cast<int>(output_tensors.size()) && idx2 >= 0);
+                nvinfer1::ITensor** concatInputs
+                        = reinterpret_cast<nvinfer1::ITensor**>(malloc(sizeof(nvinfer1::ITensor*) * 2));
+                concatInputs[0] = output_tensors[idx1];
+                concatInputs[1] = output_tensors[idx2];
+                nvinfer1::IConcatenationLayer* concat
+                        = network->addConcatenation(concatInputs, 2);
+                assert(concat != nullptr);
+                std::string concatLayerName = "route_" + std::to_string(i - 1);
+                concat->setName(concatLayerName.c_str());
+                // concatenate along the channel dimension
+                concat->setAxis(0);
+                previous = concat->getOutput(0);
+                assert(previous != nullptr);
+                // set the output volume depth
+                channels
+                        = get_num_channels(output_tensors[idx1]) + get_num_channels(output_tensors[idx2]);
+                output_tensors.push_back(concat->getOutput(0));
 
-                //print
+                print_layer_info(i, concat->getName(), previous->getDimensions(),
+                                 concat->getOutput(0)->getDimensions(), weight_ptr);
+            }
+            else
+            {
+                int idx = std::stoi(trim(block.at("layers")));
+                if (idx < 0)
+                {
+                    idx = output_tensors.size() + idx;
+                }
+                assert(idx < static_cast<int>(output_tensors.size()) && idx >= 0);
+                previous = output_tensors[idx];
+                assert(previous != nullptr);
+
+                // set the output volume depth
+                channels = get_num_channels(output_tensors[idx]);
+                output_tensors.push_back(output_tensors[idx]);
                 print_layer_info(i, "route_" + to_string(i), previous->getDimensions(),
                                  output_tensors[idx]->getDimensions(), weight_ptr);
-
-                previous = output_tensors[idx];
-                channels = get_num_channels(previous);
-                output_tensors.push_back(previous);
-            } else if (layers_s.size() == 2) {
-                int idx_1 = stoi(layers_s[0]);
-                int idx_2 = stoi(layers_s[1]);
-
-                idx_1 = idx_1 < 0 ? idx_1 + output_tensors.size() : idx_1;
-                idx_2 = idx_2 < 0 ? idx_2 + output_tensors.size() : idx_2;
-
-                assert(idx_1 < output_tensors.size() && idx_1 >= 0);
-                assert(idx_2 < output_tensors.size() && idx_2 >= 0);
-
-                nvinfer1::ITensor **concat_input = reinterpret_cast<nvinfer1::ITensor **>(malloc(
-                        sizeof(nvinfer1::ITensor *) * 2));
-                if (nullptr == concat_input) {
-                    std::cout << "malloc concat_input memory error!" << __func__ << ": " << __LINE__ << std::endl;
-                    return false;
-                }
-
-                concat_input[0] = output_tensors[idx_1];
-                concat_input[1] = output_tensors[idx_2];
-
-                nvinfer1::IConcatenationLayer *route_layer = network->addConcatenation(concat_input, 2);
-                std::string layer_name = "route_" + to_string(i);
-
-                if (nullptr == route_layer) {
-                    std::cout << "add " << layer_name << " layer error " << __func__ << ": " << __LINE__ << std::endl;
-                    return false;
-                }
-
-                route_layer->setName(layer_name.c_str());
-                route_layer->setAxis(0);
-
-                //print
-                print_layer_info(i, route_layer->getName(), previous->getDimensions(),
-                                 route_layer->getOutput(0)->getDimensions(), weight_ptr);
-
-                previous = route_layer->getOutput(0);
-                output_tensors.push_back(previous);
-                channels = get_num_channels(concat_input[0]) + get_num_channels(concat_input[1]);
-                previous->setName(layer_name.c_str());
-            } else {
-                std::cout << "error with route layer > 2 !" << std::endl;
-                return false;
             }
         } else if (b_type == "yolo") {
             nvinfer1::Dims grid_dim = previous->getDimensions();
@@ -319,7 +317,6 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
         } else if (b_type == "upsample") {
             nvinfer1::ILayer *upsample_layer = add_upsample(i, block, weights, trt_weights, weight_ptr, channels,
                                                             previous, network.get());
-            //nvinfer1::ILayer* upsample_layer = add_upsample2(i, block, weights, channels, previous, network.get());
             if (nullptr == upsample_layer) {
                 std::cout << "add upsample_" << to_string(i) << " layer error " << __func__ << ": " << __LINE__
                           << std::endl;
@@ -360,6 +357,12 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             return false;
         }
 
+    }
+
+    if (weights.size() != weight_ptr) {
+        std::cout << "Number of unused weights left : " << weights.size() - weight_ptr << std::endl;
+        std::cout << __func__ << ": " << __LINE__ << std::endl;
+        return false;
     }
 
     // 添加decode plugin
@@ -456,21 +459,6 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
             decode_layers.push_back(decode_layer_3);
         }
 
-        //test
-        //auto nms_plugin = NMSPlugin(config->nms_thresh, config->max_detection);
-        //
-        //std::vector<nvinfer1::ITensor*> scores, boxes, classes;
-        //for (auto& l : decode_layers) {
-        //	std::vector<ITensor*> nms_tensors;
-        //	nms_tensors.push_back(l->getOutput(0));
-        //	nms_tensors.push_back(l->getOutput(1));
-        //	nms_tensors.push_back(l->getOutput(2));
-        //	auto nms_layer = network->addPluginV2(nms_tensors.data(), nms_tensors.size(), nms_plugin);
-        //	scores.push_back(nms_layer->getOutput(0));
-        //	boxes.push_back(nms_layer->getOutput(1));
-        //	classes.push_back(nms_layer->getOutput(2));
-        //}
-
         //concat deocode output tensors
         //scores, boxes, classes
         std::vector<nvinfer1::ITensor *> scores, boxes, classes;
@@ -502,23 +490,6 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
         }
     }
 
-    if (weights.size() != weight_ptr) {
-        std::cout << "Number of unused weights left : " << weights.size() - weight_ptr << std::endl;
-        std::cout << __func__ << ": " << __LINE__ << std::endl;
-        return false;
-    }
-
-//    //
-//    builder->setMaxWorkspaceSize(1 << 26);
-//    builder->setMaxBatchSize(batch_size);
-//
-//    if (data_type == nvinfer1::DataType::kINT8) {
-//        // TODO
-//    } else if (data_type == nvinfer1::DataType::kHALF) {
-//        builder->setHalf2Mode(true);
-//
-//    }
-
     builder_config->setMaxWorkspaceSize(1 << 26);
     builder_config->setFlag(BuilderFlag::kGPU_FALLBACK);
     builder_config->setFlag(BuilderFlag::kSTRICT_TYPES);
@@ -531,6 +502,20 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
         builder_config->setFlag(BuilderFlag::kINT8);
     }
 
+    int nbLayers = network->getNbLayers();
+    int layersOnDLA = 0;
+    std::cout << "Total number of layers: " << nbLayers << std::endl;
+    for (uint i = 0; i < nbLayers; i++)
+    {
+        nvinfer1::ILayer* curLayer = network->getLayer(i);
+        if (builder->canRunOnDLA(curLayer))
+        {
+            builder->setDeviceType(curLayer, nvinfer1::DeviceType::kDLA);
+            layersOnDLA++;
+            std::cout << "Set layer " << curLayer->getName() << " to run on DLA" << std::endl;
+        }
+    }
+    std::cout << "Total number of layers on DLA: " << layersOnDLA << std::endl;
 
     // 创建 engine
     auto cuda_engine = unique_ptr_infer<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *builder_config));
@@ -540,7 +525,8 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
     }
 
     // 保存engine
-    save_engine(cuda_engine.get(), planfile_path);
+//    save_engine(cuda_engine.get(), planfile_path);
+    write_planfile_to_disk(cuda_engine.get(), planfile_path);
 
     std::cout << "Serialized plan file cached at location : " << planfile_path << std::endl;
 
@@ -628,7 +614,7 @@ darknet::Yolo::add_conv_bn_leaky(int layer_idx, const darknet::Block &block, std
     trt_weights.push_back(bn->getScale());
     trt_weights.push_back(bn->getPower());
 
-    nvinfer1::ILayer *leaky = add_leakyReLUV2(layer_idx, bn->getOutput(0), network);
+    nvinfer1::ILayer *leaky = add_leakyReLU(layer_idx, bn->getOutput(0), network);
     if (nullptr == leaky) {
         return nullptr;
     }
@@ -702,14 +688,14 @@ nvinfer1::IConvolutionLayer *darknet::Yolo::add_conv(int layer_idx, int filters,
         }
     }
 
-    size_t kernel_data_len = (size_t) kernel_size * kernel_size * filters * input_channels;
+    int64_t kernel_data_len = (int64_t) kernel_size * kernel_size * filters * input_channels;
     float *weight_buff = new float[kernel_data_len];
     for (size_t i = 0; i < kernel_data_len; i++) {
         weight_buff[i] = weight[weight_ptr++];
     }
 
     nvinfer1::Weights conv_bias{nvinfer1::DataType::kFLOAT, bias_buff, bias_buff == nullptr ? 0 : filters};
-    nvinfer1::Weights conv_weights{nvinfer1::DataType::kFLOAT, weight_buff, static_cast<int64_t>(kernel_data_len)};
+    nvinfer1::Weights conv_weights{nvinfer1::DataType::kFLOAT, weight_buff, kernel_data_len};
 
     nvinfer1::IConvolutionLayer *conv = network->addConvolution(*input, filters,
                                                                 nvinfer1::DimsHW(kernel_size, kernel_size),
@@ -769,7 +755,7 @@ darknet::Yolo::add_bn(int layer_idx, int filters, std::vector<float> &bn_biases,
 }
 
 nvinfer1::ILayer *
-darknet::Yolo::add_leakyReLUV2(int layer_idx, nvinfer1::ITensor *input, nvinfer1::INetworkDefinition *network){
+darknet::Yolo::add_leakyReLU(int layer_idx, nvinfer1::ITensor *input, nvinfer1::INetworkDefinition *network){
 
     float* data = new float[1];
     data[0] = 0.1;

@@ -169,13 +169,7 @@ namespace darknet {
                 nvinfer1::INetworkDefinition *network
         );
 
-//        nvinfer1::IPluginLayer *add_leakyReLU(
-//                int layer_idx,
-//                nvinfer1::ITensor *input,
-//                nvinfer1::INetworkDefinition *network
-//        );
-
-        nvinfer1::ILayer *add_leakyReLUV2(
+        nvinfer1::ILayer *add_leakyReLU(
                 int layer_idx,
                 nvinfer1::ITensor *input,
                 nvinfer1::INetworkDefinition *network

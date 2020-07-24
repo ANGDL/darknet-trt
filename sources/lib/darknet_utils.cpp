@@ -48,7 +48,6 @@ std::vector<float> load_weights(const std::string weights_path, const std::strin
     if (!(network_type == "yolov3" || network_type == "yolov3-tiny")) {
         std::cout << "Invalid network type" << std::endl;
         assert(0);
-        return weights;
     }
 
     // Remove 5 int32 bytes of data from the stream belonging to the header
@@ -106,8 +105,32 @@ bool save_engine(const nvinfer1::ICudaEngine *engine, const std::string &file_na
     return !engineFile.fail();
 }
 
+bool write_planfile_to_disk(const nvinfer1::ICudaEngine *engine, const std::string &file_name)
+{
+    std::cout << "Serializing the TensorRT Engine..." << std::endl;
+    assert(engine && "Invalid TensorRT Engine");
+    auto model_stream = engine->serialize();
+    if (!model_stream){
+        std::cout << "Engine serialization failed" << std::endl;
+        return false;
+    }
+    assert(!file_name.empty() && "Enginepath is empty");
+
+    // write data to output file
+    std::stringstream gie_model_stream;
+    gie_model_stream.seekg(0, std::stringstream::beg);
+    gie_model_stream.write(static_cast<const char*>(model_stream->data()), model_stream->size());
+    std::ofstream outFile;
+    outFile.open(file_name);
+    outFile << gie_model_stream.rdbuf();
+    outFile.close();
+
+    std::cout << "Serialized plan file cached at location : " << file_name << std::endl;
+    return true;
+}
+
 nvinfer1::ICudaEngine *
-load_trt_engine(const std::string plan_file, nvinfer1::ILogger &logger) {
+load_trt_engine2(const std::string plan_file, nvinfer1::ILogger &logger) {
     std::cout << "loading trt engine form " << plan_file << std::endl;
 
     assert(file_exits(plan_file));
@@ -148,6 +171,35 @@ load_trt_engine(const std::string plan_file, nvinfer1::ILogger &logger) {
     }
 
     std::cout << "Loading engine file Complete!" << std::endl;
+
+    return engine;
+}
+
+nvinfer1::ICudaEngine *
+load_trt_engine(const std::string plan_file, nvinfer1::ILogger &logger) {
+    // reading the model in memory
+    std::cout << "Loading TRT Engine..." << std::endl;
+    assert(file_exits(plan_file));
+    std::stringstream trt_model_stream;
+    trt_model_stream.seekg(0, std::stringstream::beg);
+    std::ifstream cache(plan_file);
+    assert(cache.good());
+    trt_model_stream << cache.rdbuf();
+    cache.close();
+
+    // calculating model size
+    trt_model_stream.seekg(0, std::ios::end);
+    const int model_size = trt_model_stream.tellg();
+    trt_model_stream.seekg(0, std::ios::beg);
+    void* model_mem = malloc(model_size);
+    trt_model_stream.read((char*) model_mem, model_size);
+
+    nvinfer1::IRuntime* runtime = nvinfer1::createInferRuntime(logger);
+    nvinfer1::ICudaEngine* engine
+            = runtime->deserializeCudaEngine(model_mem, model_size);
+    free(model_mem);
+    runtime->destroy();
+    std::cout << "Loading Complete!" << std::endl;
 
     return engine;
 }
@@ -236,7 +288,7 @@ Tensor2BBoxes::operator()(const float *detections, const std::vector<int> mask, 
                 float confidence_score = 0.0f;
                 int label_idx = -1;
 
-                for (unsigned int i = 0; i < n_classes; ++i) {
+                for (int i = 0; i < n_classes; ++i) {
                     float prob = detections[grid_idx + num_girds * (b * (5 + n_classes) + (5 + i))];
                     //if ((int)prob == 1)
                     //{
@@ -254,7 +306,12 @@ Tensor2BBoxes::operator()(const float *detections, const std::vector<int> mask, 
                     BBoxInfo binfo;
                     //if (bw >= -1e-9 && bw < 1e-9)
                     //	continue;
-                    binfo.box = convert_bbox(bx, by, bw, bh, stride);
+                    binfo.box = convert_bbox(bx, by, bw, bh, stride, input_w, input_h);
+
+                    if ((binfo.box.x1 > binfo.box.x2) || (binfo.box.y1 > binfo.box.y2))
+                    {
+                       continue;
+                    }
 
                     binfo.box.x1 -= dx;
                     binfo.box.x2 -= dx;
@@ -265,11 +322,6 @@ Tensor2BBoxes::operator()(const float *detections, const std::vector<int> mask, 
                     binfo.box.x2 /= scale;
                     binfo.box.y1 /= scale;
                     binfo.box.y2 /= scale;
-
-                    binfo.box.x1 = clamp(binfo.box.x1, 0, raw_w);
-                    binfo.box.x2 = clamp(binfo.box.x2, 0, raw_w);
-                    binfo.box.y1 = clamp(binfo.box.y1, 0, raw_h);
-                    binfo.box.y2 = clamp(binfo.box.y2, 0, raw_h);
 
                     binfo.label = label_idx;
                     binfo.prob = confidence_score;
@@ -284,62 +336,70 @@ Tensor2BBoxes::operator()(const float *detections, const std::vector<int> mask, 
 }
 
 BBox
-Tensor2BBoxes::convert_bbox(const float &bx, const float &by, const float &bw, const float &bh, const int &stride) {
+Tensor2BBoxes::convert_bbox(const float &bx, const float &by, const float &bw, const float &bh,
+        const int &stride, const uint& net_w, const uint& net_h) {
+    BBox b;
+
     float x = bx * stride;
     float y = by * stride;
 
-    float x1 = x - bw / 2;
-    float y1 = y - bh / 2;
-    float x2 = x + bw / 2;
-    float y2 = y + bh / 2;
+    b.x1 = x - bw / 2;
+    b.x2 = x + bw / 2;
 
-    return BBox{x1, y1, x2, y2};
+    b.y1 = y - bh / 2;
+    b.y2 = y + bh / 2;
+
+    b.x1 = clamp(b.x1, 0, net_w);
+    b.x2 = clamp(b.x2, 0, net_w);
+    b.y1 = clamp(b.y1, 0, net_h);
+    b.y2 = clamp(b.y2, 0, net_h);
+
+    return b;
 }
 
 
-std::vector<BBoxInfo> nms(std::vector<BBoxInfo> &bboxes, float nms_thresh) {
+std::vector<BBoxInfo> nms(std::vector<BBoxInfo> &binfo, float nms_thresh) {
     std::vector<BBoxInfo> res;
 
-    if (bboxes.size() == 0) {
+    if (binfo.size() == 0) {
         return res;
     }
 
-    auto compute_iou = [](BBox &bbox1, BBox &bbox2) {
-        float inter_rect_x1 = static_cast<float>(std::max(bbox1.x1, bbox2.x1));
-        float inter_rect_x2 = static_cast<float>(std::min(bbox1.x2, bbox2.x2));
-        float inter_rect_y1 = static_cast<float>(std::max(bbox1.y1, bbox2.y1));
-        float inter_rect_y2 = static_cast<float>(std::min(bbox1.y2, bbox2.y2));
-
-        float inter_area =
-                clamp(inter_rect_x2 - inter_rect_x1 + 1, 0.0f) * clamp(inter_rect_y2 - inter_rect_y1 + 1, 0.0f);
-
-        float b1_area = (bbox1.x2 - bbox1.x1 + 1) * (bbox1.y2 - bbox1.y1 + 1);
-        float b2_area = (bbox2.x2 - bbox2.x1 + 1) * (bbox2.y2 - bbox2.y1 + 1);
-
-        float iou = inter_area / (b1_area + b2_area - inter_area + 1e-16);
-
-        return iou;
+    auto overlap1D = [](float x1min, float x1max, float x2min, float x2max) -> float {
+        if (x1min > x2min)
+        {
+            std::swap(x1min, x2min);
+            std::swap(x1max, x2max);
+        }
+        return x1max < x2min ? 0 : std::min(x1max, x2max) - x2min;
+    };
+    auto computeIoU = [&overlap1D](BBox& bbox1, BBox& bbox2) -> float {
+        float overlapX = overlap1D(bbox1.x1, bbox1.x2, bbox2.x1, bbox2.x2);
+        float overlapY = overlap1D(bbox1.y1, bbox1.y2, bbox2.y1, bbox2.y2);
+        float area1 = (bbox1.x2 - bbox1.x1) * (bbox1.y2 - bbox1.y1);
+        float area2 = (bbox2.x2 - bbox2.x1) * (bbox2.y2 - bbox2.y1);
+        float overlap2D = overlapX * overlapY;
+        float u = area1 + area2 - overlap2D;
+        return u == 0 ? 0 : overlap2D / u;
     };
 
-    std::stable_sort(bboxes.begin(), bboxes.end(), [](const BBoxInfo &b1, const BBoxInfo &b2) {
-        return b1.prob > b2.prob;
-    });
-
-    for (auto b1 : bboxes) {
+    std::stable_sort(binfo.begin(), binfo.end(),
+                     [](const BBoxInfo& b1, const BBoxInfo& b2) { return b1.prob > b2.prob; });
+    std::vector<BBoxInfo> out;
+    for (auto& i : binfo)
+    {
         bool keep = true;
-        for (auto b2 : res) {
-            if (keep) {
-                float iou = compute_iou(b1.box, b2.box);
-                keep = iou <= nms_thresh;
-            } else {
-                break;
+        for (auto& j : out)
+        {
+            if (keep)
+            {
+                float overlap = computeIoU(i.box, j.box);
+                keep = overlap <= nms_thresh;
             }
+            else
+                break;
         }
-
-        if (keep) {
-            res.push_back(b1);
-        }
+        if (keep) out.push_back(i);
     }
-
-    return res;
+    return out;
 }
