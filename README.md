@@ -3,6 +3,7 @@
 ## Requirement
 
 - c++ 11
+- opencv-4.4.0
 - \> tensor-rt 6
 
 ## Features:
