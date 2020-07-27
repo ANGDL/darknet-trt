@@ -55,10 +55,8 @@ int main(int argc, char **argv) {
     std::string data_file = curr_path + "/../config/coco.data";
     std::string cfg_file = curr_path + "/../config/" + net_type + ".cfg";
     std::string weights_file = curr_path + "/../data/" + net_type + ".weights";
-    std::string calib_table_file = "";
-    darknet::NetConfig *cfg = darknet::DarkNetCfgFactory::create_network_config(net_type, data_file, cfg_file,
-                                                                                weights_file, calib_table_file,
-                                                                                fp16 ? "kHALF" : "kFLOAT");
+    darknet::NetConfig *cfg = darknet::DarkNetCfgFactory::create_network_config(
+            net_type, data_file, cfg_file, weights_file,fp16 ? "kHALF" : "kFLOAT");
 
     cfg->use_cuda_nms_ = true;
     cfg->score_thresh_ = 0.5;

@@ -21,7 +21,6 @@ namespace darknet {
                 const string& data_file,
                 const string& yolo_cfg_file,
                 string  weights_file,
-                string  calib_table_file,
                 string  precision,
                 string  input_blob_name = "data");
 
@@ -56,12 +55,18 @@ namespace darknet {
         const vector<string> CLASS_NAMES;
 
         const string WEIGHTS_FLIE;
-        const string CALIB_FILE;
 
+        // custom config
         float nms_thresh_ = 0.6;
         float score_thresh_ = 0.5;
         int max_detection_ = 100;
         bool use_cuda_nms_ = true;
+        bool use_dla = false;
+
+        // INT8 setting
+        std::string calib_images_list_file;
+        std::string calib_images_path;
+        std::string calib_table_file_path;
     };
 
     class YoloV3TinyCfg : public NetConfig {
@@ -70,7 +75,6 @@ namespace darknet {
                 const string& data_file,
                 const string& yolo_cfg_file,
                 const string& weights_file,
-                const string& calib_table_file,
                 const string& precision,
                 const string& input_blob_name = "data",
                 const vector<string>& output_names = YOLOV3_TINT_OUTPUT_NAMES);
@@ -104,7 +108,6 @@ namespace darknet {
         YoloV3Cfg(const string& data_file,
                   const string& yolo_cfg_file,
                   const string& weights_file,
-                  const string& calib_table_file,
                   const string& precision,
                   const string& input_blob_name = "data",
                   const vector<string>& output_names = YOLOV3_OUTPUT_NAMES);
@@ -126,8 +129,7 @@ namespace darknet {
                 const string& network_type,
                 const string& data_file,
                 const string& yolo_cfg_file,
-                const string weights_file,
-                const string& calib_table_file,
+                const string& weights_file,
                 const string& precision
         );
     };

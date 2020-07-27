@@ -2,7 +2,7 @@
 
 ## Requirement
 
-- c++ 17
+- c++ 11
 - \> tensor-rt 6
 
 ## Features:
@@ -10,9 +10,7 @@
 - [x] 端到端的推理
 - [x] BBox DecodePlugin
 - [x] NmsPlugin
-
-## TODO
-- [ ] INT8
+- [x] INT8 FP16
 
 ### reference:
 

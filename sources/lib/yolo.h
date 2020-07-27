@@ -9,6 +9,7 @@
 #include "darknet_cfg.h"
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
+#include "calibrator.h"
 
 
 namespace darknet {
@@ -106,7 +107,7 @@ namespace darknet {
 
     private:
         bool build(const nvinfer1::DataType data_type,
-                   const std::string& planfile_path /*, Int8EntropyCalibrator* calibrator*/);
+                   const std::string& planfile_path , Int8EntropyCalibrator* calibrator=nullptr);
 
         nvinfer1::ILayer *add_maxpool(int layer_idx, const darknet::Block &block, nvinfer1::ITensor *input,
                                       nvinfer1::INetworkDefinition *network);

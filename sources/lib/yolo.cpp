@@ -35,7 +35,17 @@ darknet::Yolo::Yolo(NetConfig *config, uint batch_size) :
         } else if (precision == "kHALF") {
             is_init_ = build(nvinfer1::DataType::kHALF, planfile);
         } else if (precision == "KINT8") {
-            //TODO
+            Int8EntropyCalibrator calibrator(
+                    batch_size_,
+                    config->calib_images_list_file,
+                    config->calib_images_path,
+                    config->calib_table_file_path,
+                    config->INPUT_SIZE,
+                    config->INPUT_H,
+                    config->INPUT_W,
+                    config->INPUT_BLOB_NAME
+                    );
+            is_init_ = build(nvinfer1::DataType::kINT8, planfile, &calibrator);
         } else {
             std::cout << "Unrecognized precision type " << precision << std::endl;
         }
@@ -92,7 +102,7 @@ bool darknet::Yolo::good() const {
 }
 
 bool darknet::Yolo::build(const nvinfer1::DataType data_type,
-                          const std::string& planfile_path/*, Int8EntropyCalibrator* calibrator*/) {
+                          const std::string& planfile_path, Int8EntropyCalibrator* calibrator) {
     assert(file_exits(config_->WEIGHTS_FLIE));
     // 解析网络结构
     const darknet::Blocks &blocks = config_->blocks;
@@ -112,7 +122,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
     if ((data_type == nvinfer1::DataType::kINT8 && !builder->platformHasFastInt8())
         || (data_type == nvinfer1::DataType::kHALF && !builder->platformHasFastFp16())) {
         std::cout << "Platform doesn't support this precision." << __func__ << ": " << __LINE__ << std::endl;
-//        return false;
+        return false;
     }
 
     // 添加nput层
@@ -404,7 +414,8 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
 
             decode_layers.push_back(decode_layer_1);
             decode_layers.push_back(decode_layer_2);
-        } else if (config_->get_network_type() == "yolov3") {
+        }
+        else if (config_->get_network_type() == "yolov3") {
             auto cfg = dynamic_cast<YoloV3Cfg *>(config_.get());
             // yolo_layer_1
             for (size_t i = 0; i < cfg->get_bboxes(); i++) {
@@ -459,6 +470,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
         //scores, boxes, classes
         std::vector<nvinfer1::ITensor *> scores, boxes, classes;
         for (auto &l : decode_layers) {
+//            l->setPrecision(nvinfer1::DataType::kFLOAT);
             scores.push_back(l->getOutput(0));
             boxes.push_back(l->getOutput(1));
             classes.push_back(l->getOutput(2));
@@ -472,11 +484,13 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
         for (auto tensor : {scores, boxes, classes}) {
             auto layer = network->addConcatenation(tensor.data(), tensor.size());
             layer->setAxis(0);
+//            layer->setPrecision(nvinfer1::DataType::kFLOAT);
             concat.push_back(layer->getOutput(0));
         }
         // add nms plugin
         auto nms_plugin = NMSPlugin(config_->nms_thresh_, config_->max_detection_);
         auto nms_layer = network->addPluginV2(concat.data(), concat.size(), nms_plugin);
+//        nms_layer->setPrecision(nvinfer1::DataType::kFLOAT);
 
         vector<string> names = {"scores", "boxes", "classes"};
         for (int i = 0; i < nms_layer->getNbOutputs(); i++) {
@@ -493,21 +507,27 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type,
         builder_config->setFlag(BuilderFlag::kFP16);
     }
     if (data_type == nvinfer1::DataType::kINT8) {
+        assert((calibrator != nullptr) && "Invalid calibrator for INT8 precision");
         builder_config->setFlag(BuilderFlag::kINT8);
+        builder_config->setInt8Calibrator(calibrator);
+    }
+    builder->setMaxBatchSize(batch_size_);
+
+    if(config_->use_dla){
+        int nbLayers = network->getNbLayers();
+        int layersOnDLA = 0;
+        std::cout << "Total number of layers: " << nbLayers << std::endl;
+        for (uint i = 0; i < nbLayers; i++) {
+            nvinfer1::ILayer *curLayer = network->getLayer(i);
+            if (builder->canRunOnDLA(curLayer)) {
+                builder->setDeviceType(curLayer, nvinfer1::DeviceType::kDLA);
+                layersOnDLA++;
+                std::cout << "Set layer " << curLayer->getName() << " to run on DLA" << std::endl;
+            }
+        }
+        std::cout << "Total number of layers on DLA: " << layersOnDLA << std::endl;
     }
 
-    int nbLayers = network->getNbLayers();
-    int layersOnDLA = 0;
-    std::cout << "Total number of layers: " << nbLayers << std::endl;
-    for (uint i = 0; i < nbLayers; i++) {
-        nvinfer1::ILayer *curLayer = network->getLayer(i);
-        if (builder->canRunOnDLA(curLayer)) {
-            builder->setDeviceType(curLayer, nvinfer1::DeviceType::kDLA);
-            layersOnDLA++;
-            std::cout << "Set layer " << curLayer->getName() << " to run on DLA" << std::endl;
-        }
-    }
-    std::cout << "Total number of layers on DLA: " << layersOnDLA << std::endl;
 
     // 创建 engine
     auto cuda_engine = unique_ptr_infer<nvinfer1::ICudaEngine>(
@@ -707,9 +727,9 @@ nvinfer1::IConvolutionLayer *darknet::Yolo::add_conv(int layer_idx, int filters,
 
 /*
 bn:
-						   x - mean					  γ                  mean*γ
-		y = γ * ---------------- + β = x * ------  + β -  ------------
-						  -----------					 var                  var
+						   x - mean					      γ             mean*γ
+		y = γ * ---------------------------- + β = x * -------  + β -  ---------
+						  -----------					 var              var
 						\|    var^2
 
 trt scale:

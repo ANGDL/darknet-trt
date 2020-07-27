@@ -8,6 +8,7 @@
 #include <assert.h>
 
 #include "NvInfer.h"
+#include "opencv2/opencv.hpp"
 
 #define NV_CUDA_CHECK(status)                                                                      \
     {                                                                                              \
@@ -118,4 +119,10 @@ inline T *get_next_ptr(size_t num_elem, void *&workspace, size_t &workspace_size
     return ptr;
 }
 
+cv::Mat blob_from_mats(const std::vector<cv::Mat> &input_images, const int &input_w,
+                       const int &input_h);
+
+std::vector<std::string> load_list_from_text_file(const std::string& filename);
+
+std::vector<std::string> load_image_list(const::std::string& txt_filename, const std::string& prefix);
 #endif

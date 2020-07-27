@@ -32,6 +32,7 @@ find_library(OPENCV_LIB
 
 add_library(
         yolov3_nms
+        ./sources/lib/calibrator.cpp
         ./sources/lib/darknet_cfg.cpp
         ./sources/lib/darknet_utils.cpp
         ./sources/lib/nms_kernel.cu
@@ -39,7 +40,6 @@ add_library(
         ./sources/lib/yolo_layer_kernels.cu
         ./sources/lib/yolo.cpp
         ./sources/lib/yolov3-nms.cpp
-        ./sources/lib/yolo.cpp
         sources/lib/yolo_layer_plugin.h)
 
 
@@ -64,11 +64,11 @@ target_link_libraries(
         ${TRT_PATH}/lib/libnvinfer.so
         ${TRT_PATH}/lib/libnvinfer_plugin.so
         ${TRT_PATH}/lib/libnvparsers.so
+        ${OPENCV_PATH}/lib/libopencv_world.so
 )
 
 target_link_libraries(
         test_yolo PRIVATE
-        ${OPENCV_PATH}/lib/libopencv_world.so
         yolov3_nms
 )
 

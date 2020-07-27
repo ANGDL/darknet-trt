@@ -323,3 +323,56 @@ std::vector<BBoxInfo> nms(std::vector<BBoxInfo> &binfo, float nms_thresh) {
     }
     return out;
 }
+
+cv::Mat blob_from_mats(const std::vector<cv::Mat> &input_images, const int &input_w,
+                       const int &input_h) {
+    std::vector<cv::Mat> letterboxStack(input_images.size());
+    for (uint i = 0; i < input_images.size(); ++i) {
+        input_images.at(i).copyTo(letterboxStack.at(i));
+    }
+    return cv::dnn::blobFromImages(letterboxStack, 1.0, cv::Size(input_w, input_h),
+                                   cv::Scalar(0.0, 0.0, 0.0), true, false);
+}
+
+std::vector<std::string> load_list_from_text_file(const std::string& filename){
+    assert(file_exits(filename));
+    std::vector<std::string> list;
+
+    std::ifstream f(filename);
+    if(!f){
+        std::cout << "failed to open " << filename;
+        assert(0);
+    }
+
+    std::string line;
+    while (std::getline(f, line)){
+        if (line.empty())
+            continue;
+        else
+            list.push_back(trim(line));
+    }
+
+    return list;
+}
+
+std::vector<std::string> load_image_list(const::std::string& txt_filename, const std::string& prefix){
+    std::vector<std::string> image_list;
+    std::vector<std::string> file_list = load_list_from_text_file(txt_filename);
+
+    for(auto& file : file_list){
+        if (file_exits(file)){
+            image_list.push_back(file);
+        }
+        else{
+            std::string prefixed = prefix + file;
+            if(file_exits(prefixed))
+                image_list.push_back(prefixed);
+            else
+                std::cerr << "WARNING: couldn't find: " << prefixed
+                          << " while loading: " << txt_filename << std::endl;
+        }
+    }
+
+    assert(!image_list.empty());
+    return image_list;
+}

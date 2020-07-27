@@ -4,6 +4,7 @@
 #include "opencv2/opencv.hpp"
 
 #include <chrono>
+#include <string>
 
 
 void draw_img(const std::vector<BBoxInfo> &result, cv::Mat &img, const std::vector<cv::Scalar> &color,
@@ -35,45 +36,30 @@ void draw_img(const std::vector<BBoxInfo> &result, cv::Mat &img, const std::vect
     cv::waitKey(0);
 }
 
-cv::Mat blob_from_mats(const std::vector<cv::Mat> &input_images, const int &input_w,
-                       const int &input_h) {
-    std::vector<cv::Mat> letterboxStack(input_images.size());
-    for (uint i = 0; i < input_images.size(); ++i) {
-        input_images.at(i).copyTo(letterboxStack.at(i));
-    }
-    return cv::dnn::blobFromImages(letterboxStack, 1.0, cv::Size(input_w, input_h),
-                                   cv::Scalar(0.0, 0.0, 0.0), true, false);
-}
-
 
 cv::Scalar randomColor(cv::RNG rng) {
     return cv::Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
 }
 
 
-void test_yolov3nms_infer(const std::string &net_type) {
-    const int batch_size = 1;
-
-    int d = 0;
-    cudaGetDevice(&d);
-//    bool fp16 = d == 2;
-    bool fp16 = true;
+void test_yolov3nms_infer(const std::string &net_type, const int batch_size, const int p=0) {
     std::string curr_path{"."};
 
-    //std::string calib_table_file = "";
-    //darknet::NetConfig* cfg = darknet::DarkNetCfgFactory::create_network_config("yolov3", data_file, cfg_file, weights_file, calib_table_file, "kHALF");
+    const std::vector<std::string> precision{"kFLOAT", "kHALF", "KINT8"};
 
     std::string data_file = curr_path + "/../config/coco.data";
     std::string cfg_file = curr_path + "/../config/" + net_type + ".cfg";
     std::string weights_file = curr_path + "/../data/" + net_type + ".weights";
-    std::string calib_table_file = "";
-    darknet::NetConfig *cfg = darknet::DarkNetCfgFactory::create_network_config(net_type, data_file, cfg_file,
-                                                                                weights_file, calib_table_file,
-                                                                                fp16 ? "kHALF" : "kFLOAT");
+
+    darknet::NetConfig *cfg = darknet::DarkNetCfgFactory::create_network_config(
+            net_type, data_file, cfg_file, weights_file,precision[p]);
+
+    cfg->calib_images_list_file = curr_path + "/../data/calib_image_list.txt";
+    cfg->calib_table_file_path = curr_path + "/../data/" + net_type + "-coco-calibration.table";
 
     cfg->use_cuda_nms_ = true;
     cfg->score_thresh_ = 0.6;
-    cfg->nms_thresh_ = 0.1;
+    cfg->nms_thresh_ = 0.5;
     darknet::YoloV3NMS net(cfg, batch_size);
 
     std::vector<cv::Scalar> color;
@@ -100,7 +86,7 @@ void test_yolov3nms_infer(const std::string &net_type) {
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> diff = end - start;
-    std::cout << "Time to fill and iterate a vector of " << " ints : " << diff.count() << " s\n";
+    std::cout << "Time " << " : " << diff.count() << " s\n";
 
     for (int i = 0; i < frames.size(); ++i) {
         draw_img(bboxes[i], frames[i], color, cfg->CLASS_NAMES);
@@ -109,14 +95,38 @@ void test_yolov3nms_infer(const std::string &net_type) {
 
 int main(int argc, char **argv) {
     int d = 1;
-    cudaGetDeviceCount(&d);
-    if (d < 2)
-        cudaSetDevice(0);
-    else
-        cudaSetDevice(2);
+    int batch_size = 1;
+    std::string net_type = "yolov3";
+    int p = 0;
+    int device_id = 0;
 
-    std::string net_type = "yolov3-tiny";
     for (int i = 1; i != argc; ++i) {
+        if (!strcmp(argv[i], "-batch_size")) {
+            if (++i == argc) {
+                std::cout << "batch_size input error" << std::endl;
+            }
+            batch_size = std::stoi(argv[i]);
+            continue;
+        }
+
+        if (!strcmp(argv[i], "-device")) {
+            if (++i == argc) {
+                std::cout << "device input error" << std::endl;
+            }
+            device_id = std::stoi(argv[i]);
+            continue;
+        }
+
+        if (!strcmp(argv[i], "-fp16")) {
+            p = 1;
+            continue;
+        }
+
+        if (!strcmp(argv[i], "-int8")){
+            p = 2;
+            continue;
+        }
+
         if (!strcmp(argv[i], "-net_type")) {
             if (++i == argc) {
                 std::cout << "input error" << std::endl;
@@ -127,6 +137,9 @@ int main(int argc, char **argv) {
 
     }
 
-    test_yolov3nms_infer(net_type);
+    cudaSetDevice(device_id);
+
+    test_yolov3nms_infer(net_type, batch_size, p);
+
     return 0;
 }
