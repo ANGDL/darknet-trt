@@ -128,7 +128,7 @@ bool darknet::Yolo::build(const nvinfer1::DataType data_type, const std::string 
 	// 添加输出层
 	nvinfer1::ITensor* data = network->addInput(
 		config->INPUT_BLOB_NAME.c_str(),
-		data_type,
+		nvinfer1::DataType::kFLOAT,
 		nvinfer1::DimsCHW{
 			channels,
 			static_cast<int>(config->INPUT_H),

@@ -45,28 +45,22 @@
     <ClInclude Include="sources\lib\decode_kernel.cuh">
       <Filter>cuda</Filter>
     </ClInclude>
-    <ClInclude Include="sources\lib\upsample_kernel.cuh">
-      <Filter>cuda</Filter>
-    </ClInclude>
-    <ClInclude Include="sources\lib\yolo_layer_kernels.cuh">
-      <Filter>cuda</Filter>
-    </ClInclude>
     <ClInclude Include="sources\lib\decode_plugin.h">
       <Filter>plugin</Filter>
     </ClInclude>
     <ClInclude Include="sources\lib\plugin_factory.h">
       <Filter>plugin</Filter>
     </ClInclude>
-    <ClInclude Include="sources\lib\upsample_plugin.h">
-      <Filter>plugin</Filter>
-    </ClInclude>
-    <ClInclude Include="sources\lib\yolo_layer_plugin.h">
-      <Filter>plugin</Filter>
-    </ClInclude>
     <ClInclude Include="sources\lib\nms_plugin.h">
       <Filter>plugin</Filter>
     </ClInclude>
     <ClInclude Include="sources\lib\nms_kernel.cuh">
+      <Filter>cuda</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\yolov3-nms.h">
+      <Filter>yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="sources\lib\yolo_layer_kernels.cuh">
       <Filter>cuda</Filter>
     </ClInclude>
   </ItemGroup>
@@ -89,33 +83,21 @@
     <ClCompile Include="sources\lib\yolov3.cpp">
       <Filter>yolo</Filter>
     </ClCompile>
-    <ClCompile Include="sources\lib\decode_plugin.cpp">
-      <Filter>plugin</Filter>
-    </ClCompile>
     <ClCompile Include="sources\lib\plugin_factory.cpp">
       <Filter>plugin</Filter>
     </ClCompile>
-    <ClCompile Include="sources\lib\upsample_plugin.cpp">
-      <Filter>plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="sources\lib\yolo_layer_plugin.cpp">
-      <Filter>plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="sources\lib\nms_plugin.cpp">
-      <Filter>plugin</Filter>
+    <ClCompile Include="sources\lib\yolov3-nms.cpp">
+      <Filter>yolo</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="sources\lib\decode_kernel.cu">
       <Filter>cuda</Filter>
     </CudaCompile>
-    <CudaCompile Include="sources\lib\upsample_kernel.cu">
+    <CudaCompile Include="sources\lib\nms_kernel.cu">
       <Filter>cuda</Filter>
     </CudaCompile>
     <CudaCompile Include="sources\lib\yolo_layer_kernels.cu">
-      <Filter>cuda</Filter>
-    </CudaCompile>
-    <CudaCompile Include="sources\lib\nms_kernel.cu">
       <Filter>cuda</Filter>
     </CudaCompile>
   </ItemGroup>

@@ -17,45 +17,35 @@
     <ClInclude Include="sources\lib\decode_plugin.h" />
     <ClInclude Include="sources\lib\nms_kernel.cuh" />
     <ClInclude Include="sources\lib\nms_plugin.h" />
-    <ClInclude Include="sources\lib\upsample_kernel.cuh" />
-    <ClInclude Include="sources\lib\upsample_plugin.h" />
     <ClInclude Include="sources\lib\yolo.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="sources\lib\yolov3-nms.h" />
     <ClInclude Include="sources\lib\yolov3-tiny.h" />
     <ClInclude Include="sources\lib\yolov3.h" />
-    <ClInclude Include="sources\lib\yolo_layer_kernels.cuh">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </ClInclude>
     <ClInclude Include="sources\lib\plugin_factory.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClInclude>
-    <ClInclude Include="sources\lib\yolo_layer_plugin.h" />
+    <ClInclude Include="sources\lib\yolo_layer_kernels.cuh" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="sources\apps\test.cpp" />
     <ClCompile Include="sources\lib\darknet_cfg.cpp" />
     <ClCompile Include="sources\lib\darknet_utils.cpp" />
-    <ClCompile Include="sources\lib\decode_plugin.cpp" />
-    <ClCompile Include="sources\lib\nms_plugin.cpp" />
     <ClCompile Include="sources\lib\plugin_factory.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="sources\lib\upsample_plugin.cpp" />
     <ClCompile Include="sources\lib\yolo.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="sources\lib\yolov3-nms.cpp" />
     <ClCompile Include="sources\lib\yolov3-tiny.cpp" />
     <ClCompile Include="sources\lib\yolov3.cpp" />
-    <ClCompile Include="sources\lib\yolo_layer_plugin.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="sources\lib\decode_kernel.cu" />
     <CudaCompile Include="sources\lib\nms_kernel.cu" />
-    <CudaCompile Include="sources\lib\upsample_kernel.cu" />
-    <CudaCompile Include="sources\lib\yolo_layer_kernels.cu">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
-    </CudaCompile>
+    <CudaCompile Include="sources\lib\yolo_layer_kernels.cu" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{8AF8709F-C3EB-44F1-BB99-F71287B7DC15}</ProjectGuid>
@@ -78,7 +68,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 10.1.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 10.2.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -89,6 +79,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -110,6 +102,7 @@
       <CudaRuntime>Static</CudaRuntime>
       <CodeGeneration>compute_75,sm_75</CodeGeneration>
       <AdditionalOptions>--expt-extended-lambda %(AdditionalOptions)</AdditionalOptions>
+      <MaxRegCount>32</MaxRegCount>
     </CudaCompile>
     <CudaLink />
   </ItemDefinitionGroup>
@@ -133,6 +126,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <AdditionalOptions>--expt-extended-lambda %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
     <CudaLink>
       <AdditionalOptions>--expt-extended-lambda %(AdditionalOptions)</AdditionalOptions>
@@ -140,6 +134,6 @@
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 10.1.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 10.2.targets" />
   </ImportGroup>
 </Project>

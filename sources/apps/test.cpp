@@ -167,7 +167,7 @@ cv::Mat blob_from_mats(const std::vector<cv::Mat>& input_images, const int& inpu
 		input_images.at(i).copyTo(letterboxStack.at(i));
 	}
 	return cv::dnn::blobFromImages(letterboxStack, 1.0, cv::Size(input_w, input_h),
-		cv::Scalar(0.0, 0.0, 0.0), false, false);
+		cv::Scalar(0.0, 0.0, 0.0), true, false);
 }
 
 
@@ -227,7 +227,7 @@ void test_yolov3_tiny_infer()
 
 void test_yolov3_infer()
 {
-	const int batch_size = 1;
+	const int batch_size = 2;
 	std::string curr_path{ std::filesystem::current_path().string() };
 	std::string data_file = curr_path + "/config/coco.data";
 	std::string cfg_file = curr_path + "/config/yolov3.cfg";
@@ -243,16 +243,16 @@ void test_yolov3_infer()
 	std::vector<cv::Mat> frames;
 
 	cv::Mat frame = cv::imread("dog.jpg");
+	cv::Mat frame2 = cv::imread("person.jpg");
 	//cv::imshow("frame", frame);
 	//cv::waitKey(0);
 
-	cv::Mat input_mat = prepare_image(frame, net.net_cfg->INPUT_W, net.net_cfg->INPUT_H);
+	//cv::Mat input_mat = prepare_image(frame, net.net_cfg->INPUT_W, net.net_cfg->INPUT_H);
 
-	for (int i = 0; i < batch_size; ++i) {
-		frames.push_back(frame.clone());
-	}
+	frames.push_back(frame.clone());
+	frames.push_back(frame2.clone());
 
-	input_mat = blob_from_mats(frames, net.net_cfg->INPUT_W, net.net_cfg->INPUT_H);
+	auto input_mat = blob_from_mats(frames, net.net_cfg->INPUT_W, net.net_cfg->INPUT_H);
 
 	net.infer(input_mat.data);
 	for (int i = 0; i < frames.size(); ++i) {
@@ -263,7 +263,7 @@ void test_yolov3_infer()
 
 void test_yolov3nms_infer()
 {
-	const int batch_size = 1;
+	const int batch_size = 2;
 	std::string curr_path{ std::filesystem::current_path().string() };
 	//std::string data_file = curr_path + "/config/coco.data";
 	//std::string cfg_file = curr_path + "/config/yolov3.cfg";
@@ -286,17 +286,17 @@ void test_yolov3nms_infer()
 
 	std::vector<cv::Mat> frames;
 
-	cv::Mat frame = cv::imread("person.jpg");
+	cv::Mat frame = cv::imread("dog.jpg");
+	cv::Mat frame2 = cv::imread("person.jpg");
 	//cv::imshow("frame", frame);
 	//cv::waitKey(0);
 
-	cv::Mat input_mat = prepare_image(frame, cfg->INPUT_W, cfg->INPUT_H);
+	//cv::Mat input_mat = prepare_image(frame, net.net_cfg->INPUT_W, net.net_cfg->INPUT_H);
 
-	for (int i = 0; i < batch_size; ++i) {
-		frames.push_back(frame.clone());
-	}
+	frames.push_back(frame.clone());
+	frames.push_back(frame2.clone());
 
-	input_mat = blob_from_mats(frames, cfg->INPUT_W, cfg->INPUT_H);
+	auto input_mat = blob_from_mats(frames, cfg->INPUT_W, cfg->INPUT_H);
 
 	auto start = std::chrono::system_clock::now();
 	net.infer(input_mat.data);

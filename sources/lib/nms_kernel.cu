@@ -19,7 +19,8 @@
 __global__ void nms_kernel(
     const int num_per_thread, const float threshold, const int num_detections,
     const int* indices, float* scores, const float* classes, const float4* boxes) {
-
+            
+    printf("in nms kernel\n");
     // Go through detections by descending score
     for (int m = 0; m < num_detections; m++) {
         for (int n = 0; n < num_per_thread; n++) {
@@ -46,7 +47,10 @@ __global__ void nms_kernel(
                     if (overlap > threshold) {
                         scores[i] = 0.0f;
                     }
-                  // printf("%f, %f, %f , %f, %f, %d\n", scores[i], mbox.x, mbox.y, mbox.z, mbox.w, icls);
+                   printf("%f, %f, %f , %f, %f, %d\n", scores[i], mbox.x, mbox.y, mbox.z, mbox.w, icls);
+                }
+                else {
+                    printf("%d, %d", mcls, icls);
                 }
             }
         }
@@ -129,10 +133,11 @@ int cuda_nms(int batch_size,
             0, 
             sizeof(*scores) * 8, 
             stream);
-
+        cudaStreamSynchronize(stream);
         // Launch actual NMS kernel - 1 block with each thread handling n detections
         const int max_threads = 1024;
         int num_per_thread = ceil((float)num_detections / max_threads);
+        num_per_thread = num_per_thread == 0 ? 1 : num_per_thread;
         nms_kernel << <1, max_threads, 0, stream >> > (num_per_thread, nms_thresh, num_detections,
             indices_sorted, scores_sorted, in_classes, in_boxes);
 
@@ -144,6 +149,7 @@ int cuda_nms(int batch_size,
         // Gather filtered scores, boxes, classes
         num_detections = min(detections_per_im, num_detections);
         cudaMemcpyAsync(out_scores, scores, num_detections * sizeof * scores, cudaMemcpyDeviceToDevice, stream);
+        cudaStreamSynchronize(stream);
         if (num_detections < detections_per_im) {
             thrust::fill_n(on_stream, out_scores + num_detections, detections_per_im - num_detections, 0);
         }
