@@ -37,21 +37,40 @@ int Int8EntropyCalibrator::getBatchSize() const {
     return batch_size_;
 }
 
+//bool Int8EntropyCalibrator::getBatch(void **bindings, const char **names, int nbBindings) {
+//    if (image_index_ + batch_size_ >= image_list_.size())
+//        return false;
+//
+//    std::vector<cv::Mat> one_batch_images(batch_size_);
+//    for(uint j = image_index_; j < image_index_ + batch_size_; ++j){
+//        one_batch_images.at(j - image_index_) = cv::imread(image_list_.at(j));
+//    }
+//    image_index_ += batch_size_;
+//
+//    cv::Mat trt_input = blob_from_mats(one_batch_images, input_w_, input_h_);
+//    NV_CUDA_CHECK(cudaMemcpy(
+//            device_input, trt_input.ptr<float>(0), input_count_*sizeof(float), cudaMemcpyHostToDevice));
+//
+//    assert(!strcmp(names[0], input_blob_name_.c_str()));
+//    bindings[0] = device_input;
+//    return true;
+//}
+
 bool Int8EntropyCalibrator::getBatch(void **bindings, const char **names, int nbBindings) {
     if (image_index_ + batch_size_ >= image_list_.size())
         return false;
 
-    std::vector<cv::Mat> one_batch_images(batch_size_);
+    std::vector<Img> one_batch_images(batch_size_);
     for(uint j = image_index_; j < image_index_ + batch_size_; ++j){
-        one_batch_images.at(j - image_index_) = cv::imread(image_list_.at(j));
+        one_batch_images.at(j - image_index_) = read_image(image_list_.at(j));
     }
     image_index_ += batch_size_;
 
-    cv::Mat trt_input = blob_from_mats(one_batch_images, input_w_, input_h_);
+    Img trt_input = blob_from_images(one_batch_images, input_w_, input_h_);
     NV_CUDA_CHECK(cudaMemcpy(
-            device_input, trt_input.ptr<float>(0), input_count_*sizeof(float), cudaMemcpyHostToDevice));
+            device_input, trt_input.data.get(), input_count_*sizeof(float), cudaMemcpyHostToDevice));
 
-    assert(!strcmp(names[0], input_blob_name_.c_str()));
+    assert(input_blob_name_ == std::string(names[0]));
     bindings[0] = device_input;
     return true;
 }

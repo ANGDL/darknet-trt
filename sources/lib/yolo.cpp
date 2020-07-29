@@ -709,15 +709,15 @@ nvinfer1::IConvolutionLayer *darknet::Yolo::add_conv(int layer_idx, int filters,
     nvinfer1::Weights conv_bias{nvinfer1::DataType::kFLOAT, bias_buff, bias_buff == nullptr ? 0 : filters};
     nvinfer1::Weights conv_weights{nvinfer1::DataType::kFLOAT, weight_buff, kernel_data_len};
 
-    nvinfer1::IConvolutionLayer *conv = network->addConvolution(*input, filters,
+    nvinfer1::IConvolutionLayer *conv = network->addConvolutionNd(*input, filters,
                                                                 nvinfer1::DimsHW(kernel_size, kernel_size),
                                                                 conv_weights, conv_bias);
     if (nullptr == conv) {
         return nullptr;
     }
 
-    conv->setStride(DimsHW(stride, stride));
-    conv->setPadding(DimsHW(pad, pad));
+    conv->setStrideNd(DimsHW(stride, stride));
+    conv->setPaddingNd(DimsHW(pad, pad));
 
     std::string layer_name = "conv_" + to_string(layer_idx);
     conv->setName(layer_name.c_str());
@@ -786,8 +786,8 @@ darknet::Yolo::add_leakyReLU(int layer_idx, nvinfer1::ITensor *input, nvinfer1::
 
 
 nvinfer1::IPluginV2Layer *
-darknet::Yolo::add_decode(nvinfer1::ITensor *input, nvinfer1::INetworkDefinition *network, std::string name,
-                          float score_thresh, const std::vector<float> anchors, int stride, int gride_size,
+darknet::Yolo::add_decode(nvinfer1::ITensor *input, nvinfer1::INetworkDefinition *network, const std::string& name,
+                          float score_thresh, const std::vector<float>& anchors, int stride, int gride_size,
                           int num_anchors, int num_classes) {
     auto decode = DecodePlugin(score_thresh, anchors, stride, gride_size, num_anchors, num_classes);
     auto *decode_layer = network->addPluginV2(&input, 1, decode);

@@ -32,6 +32,7 @@ find_library(OPENCV_LIB
 
 add_library(
         yolov3_nms
+        STATIC
         ./sources/lib/calibrator.cpp
         ./sources/lib/darknet_cfg.cpp
         ./sources/lib/darknet_utils.cpp
@@ -40,14 +41,19 @@ add_library(
         ./sources/lib/yolo_layer_kernels.cu
         ./sources/lib/yolo.cpp
         ./sources/lib/yolov3-nms.cpp
-        sources/lib/yolo_layer_plugin.h)
-
+        ./sources/lib/stb_image.h
+        ./sources/lib/stb_image_resize.h
+)
 
 set_target_properties(
         yolov3_nms
         PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
+        OUTPUT_NAME "yolov3_nms"
 )
+
+SET_TARGET_PROPERTIES(yolov3_nms PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+
 
 add_executable(
         test_yolo
@@ -64,15 +70,15 @@ target_link_libraries(
         ${TRT_PATH}/lib/libnvinfer.so
         ${TRT_PATH}/lib/libnvinfer_plugin.so
         ${TRT_PATH}/lib/libnvparsers.so
+)
+
+target_link_libraries(
+        test_yolo PUBLIC
+        yolov3_nms
         ${OPENCV_PATH}/lib/libopencv_world.so
 )
 
 target_link_libraries(
-        test_yolo PRIVATE
-        yolov3_nms
-)
-
-target_link_libraries(
-        create_engine PRIVATE
+        create_engine PUBLIC
         yolov3_nms
 )

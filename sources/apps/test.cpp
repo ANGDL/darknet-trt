@@ -7,6 +7,16 @@
 #include <string>
 
 
+cv::Mat blob_from_mats(const std::vector<cv::Mat> &input_images, const int &input_w,
+                       const int &input_h) {
+    std::vector<cv::Mat> letterboxStack(input_images.size());
+    for (uint i = 0; i < input_images.size(); ++i) {
+        input_images.at(i).copyTo(letterboxStack.at(i));
+    }
+    return cv::dnn::blobFromImages(letterboxStack, 1.0, cv::Size(input_w, input_h),
+                                   cv::Scalar(0.0, 0.0, 0.0), true, false);
+}
+
 void draw_img(const std::vector<BBoxInfo> &result, cv::Mat &img, const std::vector<cv::Scalar> &color,
               std::vector<std::string> class_names) {
     int box_think = (img.rows + img.cols) * .001;
@@ -43,6 +53,8 @@ cv::Scalar randomColor(cv::RNG rng) {
 
 
 void test_yolov3nms_infer(const std::string &net_type, const int batch_size, const int p=0) {
+    bool using_opencv = false;
+
     std::string curr_path{"."};
 
     const std::vector<std::string> precision{"kFLOAT", "kHALF", "KINT8"};
@@ -65,31 +77,68 @@ void test_yolov3nms_infer(const std::string &net_type, const int batch_size, con
     std::vector<cv::Scalar> color;
     for (int i = 0; i < cfg->OUTPUT_CLASSES; ++i) color.push_back(randomColor(cv::RNG(cv::getTickCount())));
 
-    std::vector<cv::Mat> frames;
+    unsigned char* input_data = nullptr;
 
-    cv::Mat frame = cv::imread("person.jpg");
-    //cv::imshow("frame", frame);
-    //cv::waitKey(0);
+    if(using_opencv){
+        std::vector<cv::Mat> frames;
+        cv::Mat frame = cv::imread("person.jpg");
+        for (int i = 0; i < batch_size; ++i) {
+            frames.push_back(frame);
+        }
+        auto input_mat = blob_from_mats(frames, cfg->INPUT_W, cfg->INPUT_H);
+        input_data = (unsigned char*)(input_mat.data);
 
-    cv::Mat input_mat;
+        cv::Mat m(cfg->INPUT_H, cfg->INPUT_W, CV_32FC3, input_data);
+        cv::cvtColor(m, m, cv::COLOR_RGB2BGR);
+        cv::imshow("", m);
+        cv::waitKey(0);
 
-    for (int i = 0; i < batch_size; ++i) {
-        frames.push_back(frame);
+
+        auto start = std::chrono::system_clock::now();
+
+        net.infer(input_data);
+
+        auto bboxes = net.get_detecions(frame.cols, frame.rows);
+
+        auto end = std::chrono::system_clock::now();
+        std::chrono::duration<double> diff = end - start;
+        std::cout << "Time " << " : " << diff.count() << " s\n";
+
+        for (int i = 0; i < frames.size(); ++i) {
+            draw_img(bboxes[i], frames[i], color, cfg->CLASS_NAMES);
+        }
+
     }
+    else{
+        std::vector<Img> frames;
+        Img frame = read_image("person.jpg");
 
-    input_mat = blob_from_mats(frames, cfg->INPUT_W, cfg->INPUT_H);
+        for (int i = 0; i < batch_size; ++i) {
+            frames.push_back(frame);
+        }
+        auto input_mat = blob_from_images(frames, cfg->INPUT_W, cfg->INPUT_H);
+        input_data = (unsigned char*)(input_mat.data.get());
 
-    auto start = std::chrono::system_clock::now();
+        auto start = std::chrono::system_clock::now();
 
-    net.infer(input_mat.data);
-    auto bboxes = net.get_detecions(frame.cols, frame.rows);
+        net.infer(input_data);
+        auto bboxes = net.get_detecions(frame.w, frame.h);
 
-    auto end = std::chrono::system_clock::now();
-    std::chrono::duration<double> diff = end - start;
-    std::cout << "Time " << " : " << diff.count() << " s\n";
+        auto end = std::chrono::system_clock::now();
+        std::chrono::duration<double> diff = end - start;
+        std::cout << "Time " << " : " << diff.count() << " s\n";
 
-    for (int i = 0; i < frames.size(); ++i) {
-        draw_img(bboxes[i], frames[i], color, cfg->CLASS_NAMES);
+        std::vector<cv::Mat> mats;
+        for (auto & i : frames) {
+            cv::Mat m(frame.h, frame.w, CV_32FC3, i.data.get());
+            m.convertTo(m, CV_8UC3);
+            cv::cvtColor(m, m, cv::COLOR_RGB2BGR);
+            mats.push_back(m);
+        }
+
+        for (int i = 0; i < mats.size(); ++i) {
+            draw_img(bboxes[i], mats[i], color, cfg->CLASS_NAMES);
+        }
     }
 }
 

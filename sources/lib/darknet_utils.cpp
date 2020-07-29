@@ -1,10 +1,19 @@
 ﻿#include <functional>
 #include <algorithm>
-#include <memory>
 #include <iostream>
 #include <iomanip>
+
 #include "darknet_utils.h"
 #include "NvInfer.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+
+#include "stb_image_resize.h"
+
 
 
 bool file_exits(const std::string filename) {
@@ -324,16 +333,6 @@ std::vector<BBoxInfo> nms(std::vector<BBoxInfo> &binfo, float nms_thresh) {
     return out;
 }
 
-cv::Mat blob_from_mats(const std::vector<cv::Mat> &input_images, const int &input_w,
-                       const int &input_h) {
-    std::vector<cv::Mat> letterboxStack(input_images.size());
-    for (uint i = 0; i < input_images.size(); ++i) {
-        input_images.at(i).copyTo(letterboxStack.at(i));
-    }
-    return cv::dnn::blobFromImages(letterboxStack, 1.0, cv::Size(input_w, input_h),
-                                   cv::Scalar(0.0, 0.0, 0.0), true, false);
-}
-
 std::vector<std::string> load_list_from_text_file(const std::string& filename){
     assert(file_exits(filename));
     std::vector<std::string> list;
@@ -376,3 +375,56 @@ std::vector<std::string> load_image_list(const::std::string& txt_filename, const
     assert(!image_list.empty());
     return image_list;
 }
+
+Img read_image(const std::string& filepath) {
+    Img image;
+
+    unsigned char* data = stbi_load(filepath.c_str(), &image.w, &image.h, &image.c, 3);
+    if(filepath.empty() or data == nullptr){
+        return image;
+    }
+    image.data = std::shared_ptr<float>(new float [image.w * image.h * image.c], [](float *p){delete [] p;});
+    for(size_t i = 0; i < image.w * image.h * image.c; ++i){
+        image.data.get()[i] = static_cast<float >(data[i]);
+    }
+    return image;
+}
+
+void hwc2chw(const float* src, float* dst, int c, int h, int w) {
+    for (int k = 0; k < c; ++k) {
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                int dst_index = x + w * y + w * h * k;
+                int src_index = k + c * x + c * w * y;
+                dst[dst_index] = src[src_index];
+            }
+        }
+    }
+}
+
+
+Img blob_from_images(const std::vector<Img> &input_images, const int &input_w, const int &input_h) {
+    Img blob;
+    size_t num_images = input_images.size();
+
+    auto one_image_size = input_w * input_h * 3;
+    blob.data = std::shared_ptr<float>(new float [num_images * one_image_size]);
+    if(!blob.data){
+        assert(0);
+    }
+    float* ptr = blob.data.get();
+
+    auto resized_data = new float [one_image_size];
+
+    for(auto& im : input_images){
+        auto ret = stbir_resize_float(im.data.get(), im.w, im.h, 0, resized_data, input_w, input_h, 0, 3);
+        if(ret){
+            hwc2chw(resized_data, ptr, 3, input_h, input_w);
+            ptr += one_image_size;
+        }
+    }
+
+    return blob;
+}
+
+

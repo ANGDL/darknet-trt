@@ -18,7 +18,7 @@ def create_list(path, n, save_path):
 
 
 if __name__ == '__main__':
-    path = '/mnt/d/datasets/coco/val2017'
-    n = 1000
+    path = '/mnt/d/datasets/coco/images/val2014'
+    n = 500
     save_path = './calib_image_list.txt'
     create_list(path, n, save_path)

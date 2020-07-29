@@ -177,9 +177,9 @@ namespace darknet {
         );
 
         nvinfer1::IPluginV2Layer *add_decode(
-                nvinfer1::ITensor *input, nvinfer1::INetworkDefinition *network, std::string name,
+                nvinfer1::ITensor *input, nvinfer1::INetworkDefinition *network, const std::string& name,
                 float score_thresh,
-                const std::vector<float> anchors,
+                const std::vector<float>& anchors,
                 int stride,
                 int gride_size,
                 int num_anchors,
